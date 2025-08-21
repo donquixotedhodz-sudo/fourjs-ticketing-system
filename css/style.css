@@ -1,0 +1,651 @@
+:root {
+    --primary-blue: #4A90E2;
+    --secondary-blue: #5C9CE6;
+    --light-blue: #E8F1FC;
+    --hover-blue: #357ABD;
+    --text-blue: #2C3E50;
+    --success: #2ECC71;
+    --warning: #F1C40F;
+    --danger: #E74C3C;
+    --info: #3498DB;
+    --pastel-purple: #B39DDB;
+    --pastel-pink: #F8BBD0;
+    --pastel-green: #A5D6A7;
+    --pastel-orange: #FFCC80;
+    --card-1: #4A90E2;
+    --card-2: #2ECC71;
+    --card-3: #F1C40F;
+    --card-4: #E74C3C;
+    --sidebar-bg: #2C3E50;
+    --sidebar-header: #1A252F;
+    --sidebar-hover: #34495E;
+    --sidebar-active: #3498DB;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #F5F7FA;
+}
+
+/* Dropdown menu styles */
+.dropdown-menu {
+    z-index: 1050 !important;
+    border: none;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    padding: 8px 0;
+    min-width: 180px;
+}
+
+.dropdown-item {
+    padding: 8px 16px;
+    transition: all 0.2s;
+}
+
+.dropdown-item:hover {
+    background-color: #f8f9fa;
+    color: var(--primary-blue);
+}
+
+.dropdown-toggle::after {
+    margin-left: 8px;
+}
+
+.wrapper {
+    display: flex;
+    width: 100%;
+    align-items: stretch;
+}
+
+/* Modern Sidebar Styles */
+.modern-sidebar {
+    min-width: 280px;
+    max-width: 280px;
+    min-height: 100vh;
+    background: #1a1d29 !important;
+    transition: all 0.3s ease;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    overflow-y: auto;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.modern-sidebar.active {
+    margin-left: -280px;
+}
+
+
+
+/* Sidebar Header */
+.sidebar-header {
+    padding: 30px 20px;
+    background: #1a1d29;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.logo-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.sidebar-logo {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid #4A90E2;
+    box-shadow: 0 0 20px rgba(74, 144, 226, 0.5), 0 0 40px rgba(74, 144, 226, 0.3), 0 0 60px rgba(74, 144, 226, 0.1);
+    transition: all 0.3s ease;
+}
+
+.sidebar-logo:hover {
+    box-shadow: 0 0 30px rgba(74, 144, 226, 0.7), 0 0 50px rgba(74, 144, 226, 0.5), 0 0 80px rgba(74, 144, 226, 0.3);
+    transform: scale(1.05);
+}
+
+.brand-text {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #ffffff;
+    letter-spacing: -0.025em;
+}
+
+/* Sidebar Menu */
+.sidebar-menu {
+    padding: 16px 0;
+}
+
+.menu-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.menu-item {
+    margin: 4px 12px;
+}
+
+.menu-link {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    color: #9ca3af;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    position: relative;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.menu-link:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+    text-decoration: none;
+}
+
+.menu-link i {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    font-size: 16px;
+}
+
+.menu-text {
+    flex: 1;
+}
+
+.dropdown-icon {
+    margin-left: auto;
+    margin-right: 0 !important;
+    font-size: 12px;
+    transition: transform 0.2s ease;
+}
+
+.dropdown-toggle[aria-expanded="true"] .dropdown-icon {
+    transform: rotate(180deg);
+}
+
+/* Active States */
+.menu-item.active > .menu-link {
+    background: #3b82f6;
+    color: #ffffff;
+}
+
+.menu-item.active > .menu-link:hover {
+    background: #2563eb;
+}
+
+/* Submenu Styles */
+.submenu {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0 0 0;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.submenu-item {
+    margin: 0;
+}
+
+.submenu-link {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px 10px 48px;
+    color: #9ca3af;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    font-size: 0.8125rem;
+    font-weight: 400;
+}
+
+.submenu-link:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+    text-decoration: none;
+}
+
+.submenu-link i {
+    width: 16px;
+    height: 16px;
+    margin-right: 10px;
+    font-size: 14px;
+}
+
+.submenu-item.active .submenu-link {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    border-left: 3px solid #3b82f6;
+    padding-left: 45px;
+}
+
+
+
+/* Scrollbar for sidebar */
+.modern-sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.modern-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.modern-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+}
+
+.modern-sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+#content {
+    margin-left: 280px;
+    min-height: 100vh;
+    transition: all 0.3s ease;
+    background: #F5F7FA;
+    padding: 0;
+    width: calc(100% - 280px);
+}
+
+#content.expanded {
+    margin-left: 0;
+    width: 100%;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .modern-sidebar {
+        margin-left: -280px;
+        z-index: 1050;
+    }
+    
+    .modern-sidebar.active {
+        margin-left: 0;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    #content {
+        margin-left: 0;
+        width: 100%;
+    }
+    
+    #content.expanded {
+        margin-left: 0;
+    }
+    
+    /* Add overlay when sidebar is open on mobile */
+    #content.expanded::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1040;
+        pointer-events: auto;
+    }
+    
+    #sidebarCollapse {
+        display: block !important;
+    }
+}
+
+@media (min-width: 769px) {
+    .modern-sidebar {
+        margin-left: 0;
+    }
+    
+    .modern-sidebar.active {
+        margin-left: -280px;
+    }
+    
+    #content {
+        margin-left: 280px;
+        width: calc(100% - 280px);
+    }
+    
+    #content.expanded {
+        margin-left: 0;
+        width: 100%;
+    }
+    
+    #sidebarCollapse {
+        display: block !important;
+    }
+}
+
+
+
+
+
+
+
+.card {
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    margin-bottom: 25px;
+    border: none;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
+}
+
+/* Card Colors */
+.total-orders {
+    background-color: var(--card-1);
+}
+
+.completed-orders {
+    background-color: var(--card-2);
+}
+
+.in-progress-orders {
+    background-color: #FFC107; /* Yellow for in progress */
+}
+
+.pending-orders {
+    background-color: #DC3545; /* Red for pending */
+}
+
+.unique-customers {
+    background-color: #9C27B0; /* Purple for customers */
+}
+
+.total-sales {
+    background-color: #FF5722; /* Orange-red for sales */
+}
+
+.card-body {
+    padding: 1.75rem;
+}
+
+.card-title {
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+    color: var(--text-blue);
+    font-size: 1.1rem;
+}
+
+.card i {
+    opacity: 0.9;
+    transition: transform 0.3s ease;
+}
+
+.card:hover i {
+    transform: scale(1.1);
+}
+
+.navbar {
+    padding: 20px 25px;
+    background: #fff;
+    border: none;
+    border-radius: 0;
+    margin-bottom: 30px;
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.03);
+}
+
+#sidebarCollapse {
+    background: transparent;
+    border: none;
+    color: var(--text-blue);
+    font-size: 1.2rem;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: all 0.3s;
+}
+
+#sidebarCollapse:hover {
+    background: var(--light-blue);
+}
+
+.btn-outline-primary {
+    border-color: var(--primary-blue);
+    color: var(--primary-blue);
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+
+.btn-outline-primary:hover {
+    background: var(--primary-blue);
+    color: #fff;
+    transform: translateY(-2px);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--primary-blue);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--hover-blue);
+}
+
+
+
+/* Login Styles */
+.login-container {
+    min-height: 90vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--light-blue);
+    padding: 1rem;
+}
+
+.login-card {
+    background: #fff;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1), 
+                0 0 40px rgba(74, 144, 226, 0.3),
+                0 0 80px rgba(74, 144, 226, 0.2),
+                0 0 120px rgba(74, 144, 226, 0.1);
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 350px;
+    position: relative;
+    animation: glow-pulse 3s ease-in-out infinite alternate;
+    animation: glow-pulse 3s ease-in-out infinite alternate;
+}
+
+.login-card::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    right: -10px;
+    bottom: -10px;
+}
+
+
+.login-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.logo-circle {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    margin: 0 auto 1rem;
+    overflow: hidden;
+    border: 2px solid var(--primary-blue);
+    box-shadow: 0 4px 15px rgba(0, 180, 216, 0.2);
+}
+
+.logo-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.logo-circle:hover .logo-image {
+    transform: scale(1.1);
+}
+
+.login-header h2 {
+    color: var(--text-blue);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    font-size: 1.5rem;
+}
+
+.login-header p {
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.role-selector {
+    margin-bottom: 1rem;
+}
+
+.role-card {
+    padding: 1rem;
+}
+
+.role-card i {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.role-card h5 {
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.role-card p {
+    font-size: 0.8rem;
+    margin: 0;
+}
+
+.form-floating {
+    margin-bottom: 0.75rem;
+}
+
+.form-floating > .form-control {
+    padding: 0.75rem 0.75rem;
+    height: calc(2.5rem + 2px);
+}
+
+.form-floating > label {
+    padding: 0.75rem;
+}
+
+.btn-login {
+    padding: 0.6rem;
+    font-size: 0.9rem;
+    margin-top: 1rem;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease;
+    position: relative;
+    z-index: 100;
+}
+
+.btn-login:hover {
+    cursor: pointer !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Password toggle icon styles */
+.password-field-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #6c757d;
+    z-index: 5;
+    background: none;
+    border: none;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
+    pointer-events: auto;
+}
+
+.password-toggle:hover {
+    color: #495057;
+}
+
+.password-toggle:focus {
+    outline: none;
+}
+
+/* Adjust form-floating padding for password fields */
+.form-floating .password-field-container .form-control {
+    padding-right: 32px;
+}
+
+/* Adjust password field container for form-floating */
+.form-floating .password-field-container {
+    width: 100%;
+}
+
+.form-floating .password-field-container .form-control {
+    height: calc(3.5rem + 2px);
+    line-height: 1.25;
+}
+
+.form-floating .password-field-container .password-toggle {
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Ensure the input field takes full width */
+.password-field-container input {
+    width: 100%;
+    padding-right: 32px;
+}
+
+/* Adjust form-floating label position */
+.form-floating > .password-field-container > .form-control:focus ~ label,
+.form-floating > .password-field-container > .form-control:not(:placeholder-shown) ~ label {
+    transform: scale(.85) translateY(-0.5rem) translateX(0.15rem);
+}
+
+/* Adjust icon size for form-floating */
+.form-floating .password-toggle i {
+    font-size: 14px;
+}
