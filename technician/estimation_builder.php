@@ -79,7 +79,7 @@ require_once 'includes/header.php';
     border: 1px solid #e9ecef;
     border-radius: 10px;
     margin-bottom: 10px;
-    transition: all 0.3s ease;
+    transition: border-color 0.1s ease, box-shadow 0.1s ease, transform 0.1s ease;
     cursor: pointer;
 }
 
@@ -189,7 +189,13 @@ require_once 'includes/header.php';
                     <button type="button" id="sidebarCollapse" class="btn">
                         <i class="fas fa-bars"></i>
                     </button>
-                    <div class="ms-auto d-flex align-items-center">
+                    <div class="ms-auto d-flex align-items-center gap-3">
+                        <!-- Dark Mode Toggle -->
+                        <button class="theme-toggle" id="themeToggle" title="Toggle Dark Mode">
+                            <i class="fas fa-sun" id="themeIcon"></i>
+                            <span id="themeText">Light</span>
+                        </button>
+                        
                         <div class="dropdown">
                             <a class="d-flex align-items-center text-decoration-none dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
                                 <img src="<?= !empty($technician['profile_picture']) ? '../' . htmlspecialchars($technician['profile_picture']) : 'https://ui-avatars.com/api/?name=' . urlencode($technician['name'] ?: 'Technician') . '&background=1a237e&color=fff' ?>" 
@@ -581,5 +587,7 @@ require_once 'includes/header.php';
     
     <!-- Sidebar functionality -->
     <script src="../js/sidebar.js"></script>
+    <!-- Dark Mode JS -->
+    <script src="../js/dark-mode.js"></script>
 </body>
 </html>

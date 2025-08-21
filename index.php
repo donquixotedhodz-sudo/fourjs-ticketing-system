@@ -76,6 +76,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['check_credentials'])
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/style.css">
+    <!-- Prevent FOUC - Apply theme immediately -->
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            document.documentElement.style.setProperty('--bg-primary', savedTheme === 'dark' ? '#1a1a1a' : '#F5F7FA');
+            document.documentElement.style.setProperty('--bg-secondary', savedTheme === 'dark' ? '#2d2d2d' : '#ffffff');
+            document.documentElement.style.setProperty('--text-primary', savedTheme === 'dark' ? '#e2e8f0' : '#2C3E50');
+            
+            // Apply theme to body immediately when it becomes available
+            function applyThemeToBody() {
+                if (document.body) {
+                    document.body.setAttribute('data-theme', savedTheme);
+                    document.body.classList.add('no-transition');
+                } else {
+                    setTimeout(applyThemeToBody, 1);
+                }
+            }
+            
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', applyThemeToBody);
+            } else {
+                applyThemeToBody();
+            }
+        })();
+    </script>
     <style>
         :root {
             --primary-blue: #1a237e;
@@ -156,7 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['check_credentials'])
             border: none;
             padding: 0.75rem;
             font-weight: 500;
-            transition: all 0.3s ease;
+            transition: background-color 0.1s ease, transform 0.1s ease;
         }
         
         .btn-login:hover {
@@ -222,7 +248,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['check_credentials'])
             flex-direction: column;
             z-index: 9999;
             opacity: 0;
-            transition: opacity 0.3s ease;
+            transition: opacity 0.1s ease;
         }
 
         .loading-screen.active {
@@ -318,6 +344,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['check_credentials'])
     </style>
 </head>
 <body>
+    <!-- Dark Mode Toggle for Login Page -->
+    <div class="position-fixed top-0 end-0 p-3" style="z-index: 1000;">
+        <button class="theme-toggle" id="themeToggle" title="Toggle Dark Mode">
+            <i class="fas fa-sun" id="themeIcon"></i>
+            <span id="themeText">Light</span>
+        </button>
+    </div>
+    
     <!-- Add loading screen HTML -->
     <div class="loading-screen">
         <div class="snowflake-loader">
@@ -367,6 +401,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['check_credentials'])
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Dark Mode JS -->
+    <script src="js/dark-mode.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const passwordInput = document.getElementById('password');

@@ -62,7 +62,7 @@ require_once 'includes/header.php';
     .card {
         border: none;
         box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-        transition: all 0.3s ease;
+        transition: box-shadow 0.1s ease;
     }
     .card:hover {
         box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
@@ -96,7 +96,13 @@ require_once 'includes/header.php';
                     <button type="button" id="sidebarCollapse" class="btn">
                         <i class="fas fa-bars"></i>
                     </button>
-                    <div class="ms-auto d-flex align-items-center">
+                    <div class="ms-auto d-flex align-items-center gap-3">
+                        <!-- Dark Mode Toggle -->
+                        <button class="theme-toggle" id="themeToggle" title="Toggle Dark Mode">
+                            <i class="fas fa-sun" id="themeIcon"></i>
+                            <span id="themeText">Light</span>
+                        </button>
+                        
                         <div class="dropdown">
                             <a class="d-flex align-items-center text-decoration-none dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
                                 <img src="<?= !empty($admin['profile_picture']) ? '../' . htmlspecialchars($admin['profile_picture']) : 'https://ui-avatars.com/api/?name=' . urlencode($admin['name'] ?: 'Admin') . '&background=1a237e&color=fff' ?>" 
@@ -503,5 +509,8 @@ require_once 'includes/header.php';
             }
         }
     </script>
+    
+    <!-- Dark Mode JS -->
+    <script src="../js/dark-mode.js"></script>
 </body>
 </html>

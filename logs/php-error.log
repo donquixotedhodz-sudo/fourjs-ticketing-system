@@ -14,3 +14,7 @@
 [15-Aug-2025 13:39:47 Europe/Berlin] Database connection successful
 [15-Aug-2025 13:39:47 Europe/Berlin] Profile Update - Received data: {"name":"Administrator - Staff","username":"admin","email":"student.joshmcdowelltrapal@gmail.com","phone":"09958714112","user_id":1}
 [15-Aug-2025 13:39:47 Europe/Berlin] Profile Update Success: Admin ID 1
+[21-Aug-2025 20:10:56 Asia/Manila] Attempting database connection to localhost with database job_order_system
+[21-Aug-2025 20:10:56 Asia/Manila] Database connection successful
+[21-Aug-2025 20:10:56 Asia/Manila] Profile Update - Received data: {"name":"4Js Telecommunications","username":"fourjs-admin","email":"4jstelcom@gmail.com","phone":"09958714112","user_id":6}
+[21-Aug-2025 20:10:56 Asia/Manila] Profile Update Success: Admin ID 6

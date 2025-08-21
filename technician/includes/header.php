@@ -16,6 +16,32 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="../css/style.css">
+    <!-- Prevent FOUC - Apply theme immediately -->
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            document.documentElement.style.setProperty('--bg-primary', savedTheme === 'dark' ? '#1a1a1a' : '#F5F7FA');
+            document.documentElement.style.setProperty('--bg-secondary', savedTheme === 'dark' ? '#2d2d2d' : '#ffffff');
+            document.documentElement.style.setProperty('--text-primary', savedTheme === 'dark' ? '#e2e8f0' : '#2C3E50');
+            
+            // Apply theme to body immediately when it becomes available
+            function applyThemeToBody() {
+                if (document.body) {
+                    document.body.setAttribute('data-theme', savedTheme);
+                    document.body.classList.add('no-transition');
+                } else {
+                    setTimeout(applyThemeToBody, 1);
+                }
+            }
+            
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', applyThemeToBody);
+            } else {
+                applyThemeToBody();
+            }
+        })();
+    </script>
     <style>
         .technician-item {
             display: flex;
@@ -24,7 +50,7 @@
             padding: 0.5rem 1rem;
             color: #fff;
             text-decoration: none;
-            transition: all 0.3s;
+            transition: background 0.1s ease;
         }
         .technician-item:hover {
             background: rgba(255, 255, 255, 0.1);

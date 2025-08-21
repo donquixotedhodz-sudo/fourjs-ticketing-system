@@ -74,7 +74,13 @@ try {
                 <button type="button" id="sidebarCollapse" class="btn">
                     <i class="fas fa-bars"></i>
                 </button>
-                <div class="ms-auto d-flex align-items-center">
+                <div class="ms-auto d-flex align-items-center gap-3">
+                    <!-- Dark Mode Toggle -->
+                    <button class="theme-toggle" id="themeToggle" title="Toggle Dark Mode">
+                        <i class="fas fa-sun" id="themeIcon"></i>
+                        <span id="themeText">Light</span>
+                    </button>
+                    
                     <div class="dropdown">
                         <a class="d-flex align-items-center text-decoration-none dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
                             <?php
@@ -753,7 +759,7 @@ try {
 <!-- <script src="../js/dashboard.js"></script> -->
 <style>
     .order-type-card {
-        transition: all 0.3s ease;
+        transition: transform 0.1s ease, box-shadow 0.1s ease;
         cursor: pointer;
     }
     
@@ -824,7 +830,7 @@ document.addEventListener('DOMContentLoaded', function() {
         card.addEventListener('mouseenter', function() {
             this.style.cursor = 'pointer';
             this.style.transform = 'translateY(-5px)';
-            this.style.transition = 'transform 0.3s ease';
+            this.style.transition = 'transform 0.1s ease';
             this.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
         });
 
@@ -1234,6 +1240,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+
+<!-- Dark Mode JS -->
+<script src="../js/dark-mode.js"></script>
 
 </div>
 

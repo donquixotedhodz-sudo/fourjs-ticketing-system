@@ -141,7 +141,13 @@ require_once 'includes/header.php';
                     <button type="button" id="sidebarCollapse" class="btn">
                         <i class="fas fa-bars"></i>
                     </button>
-                    <div class="ms-auto d-flex align-items-center">
+                    <div class="ms-auto d-flex align-items-center gap-3">
+                        <!-- Dark Mode Toggle -->
+                        <button class="theme-toggle" id="themeToggle" title="Toggle Dark Mode">
+                            <i class="fas fa-sun" id="themeIcon"></i>
+                            <span id="themeText">Light</span>
+                        </button>
+                        
                         <div class="dropdown">
                             <a class="d-flex align-items-center text-decoration-none dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
                                 <img src="<?= !empty($admin['profile_picture']) ? '../' . htmlspecialchars($admin['profile_picture']) : 'https://ui-avatars.com/api/?name=' . urlencode($admin['name'] ?: 'Admin') . '&background=1a237e&color=fff' ?>" 
@@ -994,6 +1000,8 @@ require_once 'includes/header.php';
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Dark Mode JS -->
+    <script src="../js/dark-mode.js"></script>
     <!-- Custom JS -->
     <!-- <script src="../js/dashboard.js"></script> -->
 </body>

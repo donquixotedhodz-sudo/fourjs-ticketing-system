@@ -121,7 +121,13 @@ require_once 'includes/header.php';
                     <button type="button" id="sidebarCollapse" class="btn">
                         <i class="fas fa-bars"></i>
                     </button>
-                    <div class="ms-auto d-flex align-items-center">
+                    <div class="ms-auto d-flex align-items-center gap-3">
+                        <!-- Dark Mode Toggle -->
+                        <button class="theme-toggle" id="themeToggle" title="Toggle Dark Mode">
+                            <i class="fas fa-sun" id="themeIcon"></i>
+                            <span id="themeText">Light</span>
+                        </button>
+                        
                         <div class="dropdown">
                             <a class="d-flex align-items-center text-decoration-none dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
                                 <img src="<?= !empty($admin['profile_picture']) ? '../' . htmlspecialchars($admin['profile_picture']) : 'https://ui-avatars.com/api/?name=' . urlencode($admin['name'] ?: 'Admin') . '&background=1a237e&color=fff' ?>" 
@@ -568,7 +574,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 /* Smooth pagination transitions */
 .table-responsive {
-    transition: opacity 0.3s ease-in-out;
+    transition: opacity 0.1s ease-in-out;
 }
 
 .table-responsive.loading {
@@ -606,7 +612,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 /* Card animation */
 .card {
-    transition: all 0.3s ease-in-out;
+    transition: transform 0.1s ease-in-out, opacity 0.1s ease-in-out;
 }
 
 .card.loading {
@@ -876,5 +882,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 }
 </style>
+
+<!-- Dark Mode JS -->
+<script src="../js/dark-mode.js"></script>
 </body>
 </html>
