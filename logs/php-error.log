@@ -1,0 +1,16 @@
+[04-Jun-2025 06:22:11 Europe/Berlin] Attempting database connection to localhost with database job_order_system
+[04-Jun-2025 06:22:11 Europe/Berlin] Database connection successful
+[04-Jun-2025 06:22:11 Europe/Berlin] Profile Update - Received data: {"name":"Administrator - Staff","username":"admin","email":"student.joshmcdowelltrapal@gmail.com","phone":"09958714112","user_id":1}
+[04-Jun-2025 06:22:11 Europe/Berlin] Profile Update Error (Connection): SQLSTATE[42S22]: Column not found: 1054 Unknown column 'email' in 'where clause'
+[04-Jun-2025 06:23:55 Europe/Berlin] Attempting database connection to localhost with database job_order_system
+[04-Jun-2025 06:23:55 Europe/Berlin] Database connection successful
+[04-Jun-2025 06:23:55 Europe/Berlin] Profile Update - Received data: {"name":"Administrator - Staff","username":"admin","email":"student.joshmcdowelltrapal@gmail.com","phone":"09958714112","user_id":1}
+[04-Jun-2025 06:23:55 Europe/Berlin] Profile Update Success: Admin ID 1
+[15-Aug-2025 03:05:10 Europe/Berlin] Attempting database connection to localhost with database job_order_system
+[15-Aug-2025 03:05:10 Europe/Berlin] Database connection successful
+[15-Aug-2025 03:05:10 Europe/Berlin] Profile Update - Received data: {"name":"Admin - Staff","username":"admin","email":"student.joshmcdowelltrapal@gmail.com","phone":"09958714112","user_id":1}
+[15-Aug-2025 03:05:10 Europe/Berlin] Profile Update Success: Admin ID 1
+[15-Aug-2025 13:39:47 Europe/Berlin] Attempting database connection to localhost with database job_order_system
+[15-Aug-2025 13:39:47 Europe/Berlin] Database connection successful
+[15-Aug-2025 13:39:47 Europe/Berlin] Profile Update - Received data: {"name":"Administrator - Staff","username":"admin","email":"student.joshmcdowelltrapal@gmail.com","phone":"09958714112","user_id":1}
+[15-Aug-2025 13:39:47 Europe/Berlin] Profile Update Success: Admin ID 1
