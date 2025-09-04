@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Commit transaction
         $pdo->commit();
-        
+        // REDIRECT TO THE CUSTOMER ORDERS PAGE BASED ON THE ID
         $_SESSION['success'] = 'Bulk cleaning orders created successfully! Job Order Numbers: ' . implode(', ', $created_orders);
         header('Location: ../customer_orders.php?customer_id=' . $customer_id);
         exit();

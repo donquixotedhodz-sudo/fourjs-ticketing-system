@@ -262,11 +262,21 @@ require_once 'includes/header.php';
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Password</label>
-                            <input type="password" class="form-control" name="password" required minlength="6">
+                            <div class="position-relative">
+                                <input type="password" class="form-control" name="password" id="password" required minlength="6" style="padding-right: 40px;">
+                                <button class="btn position-absolute top-50 end-0 translate-middle-y me-2" type="button" id="togglePassword" style="border: none; background: none; color: #6c757d; z-index: 10; display: none;">
+                                    <i class="fas fa-eye" id="passwordIcon"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Confirm Password</label>
-                            <input type="password" class="form-control" name="confirm_password" required minlength="6">
+                            <div class="position-relative">
+                                <input type="password" class="form-control" name="confirm_password" id="confirmPassword" required minlength="6" style="padding-right: 40px;">
+                                <button class="btn position-absolute top-50 end-0 translate-middle-y me-2" type="button" id="toggleConfirmPassword" style="border: none; background: none; color: #6c757d; z-index: 10; display: none;">
+                                    <i class="fas fa-eye" id="confirmPasswordIcon"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Profile Photo</label>
@@ -354,6 +364,65 @@ require_once 'includes/header.php';
         document.addEventListener('DOMContentLoaded', function() {
             const editModal = document.getElementById('editTechnicianModal');
             const deleteModal = document.getElementById('deleteTechnicianModal');
+
+            // Password toggle functionality
+            const togglePassword = document.getElementById('togglePassword');
+            const password = document.getElementById('password');
+            const passwordIcon = document.getElementById('passwordIcon');
+
+            const toggleConfirmPassword = document.getElementById('toggleConfirmPassword');
+            const confirmPassword = document.getElementById('confirmPassword');
+            const confirmPasswordIcon = document.getElementById('confirmPasswordIcon');
+
+            if (togglePassword && password && passwordIcon) {
+                // Show/hide toggle button based on input content
+                password.addEventListener('input', function() {
+                    if (password.value.length > 0) {
+                        togglePassword.style.display = 'block';
+                    } else {
+                        togglePassword.style.display = 'none';
+                    }
+                });
+
+                togglePassword.addEventListener('click', function() {
+                    const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+                    password.setAttribute('type', type);
+                    
+                    // Toggle the eye icon
+                    if (type === 'password') {
+                        passwordIcon.classList.remove('fa-eye-slash');
+                        passwordIcon.classList.add('fa-eye');
+                    } else {
+                        passwordIcon.classList.remove('fa-eye');
+                        passwordIcon.classList.add('fa-eye-slash');
+                    }
+                });
+            }
+
+            if (toggleConfirmPassword && confirmPassword && confirmPasswordIcon) {
+                // Show/hide toggle button based on input content
+                confirmPassword.addEventListener('input', function() {
+                    if (confirmPassword.value.length > 0) {
+                        toggleConfirmPassword.style.display = 'block';
+                    } else {
+                        toggleConfirmPassword.style.display = 'none';
+                    }
+                });
+
+                toggleConfirmPassword.addEventListener('click', function() {
+                    const type = confirmPassword.getAttribute('type') === 'password' ? 'text' : 'password';
+                    confirmPassword.setAttribute('type', type);
+                    
+                    // Toggle the eye icon
+                    if (type === 'password') {
+                        confirmPasswordIcon.classList.remove('fa-eye-slash');
+                        confirmPasswordIcon.classList.add('fa-eye');
+                    } else {
+                        confirmPasswordIcon.classList.remove('fa-eye');
+                        confirmPasswordIcon.classList.add('fa-eye-slash');
+                    }
+                });
+            }
 
             editModal.addEventListener('show.bs.modal', function (event) {
                 const button = event.relatedTarget; // Button that triggered the modal
