@@ -25,40 +25,47 @@ if (isset($_SESSION['user_id'])) {
 }
 
 // Get filter parameters
-$page = max(1, intval($_GET['page'] ?? 1));
-$limit = 10;
-$offset = ($page - 1) * $limit;
-
-$filter = $_GET['filter'] ?? '';
+$filter_type = $_GET['filter_type'] ?? '';
+$filter_value = $_GET['filter_value'] ?? '';
 $custom_from = $_GET['from'] ?? '';
 $custom_to = $_GET['to'] ?? '';
-$search_customer = $_GET['search_customer'] ?? '';
-
 $where = 'job_orders.assigned_technician_id = ?';
 $params = [$_SESSION['user_id']];
 
-// Date filters
-switch ($filter) {
-    case 'day': $where .= " AND DATE(job_orders.created_at) = CURDATE()"; break;
-    case 'week': $where .= " AND YEARWEEK(job_orders.created_at, 1) = YEARWEEK(CURDATE(), 1)"; break;
-    case 'month': $where .= " AND YEAR(job_orders.created_at) = YEAR(CURDATE()) AND MONTH(job_orders.created_at) = MONTH(CURDATE())"; break;
-    case 'year': $where .= " AND YEAR(job_orders.created_at) = YEAR(CURDATE())"; break;
-    case 'custom':
-        if ($custom_from && $custom_to) {
-            $where .= " AND DATE(job_orders.created_at) BETWEEN ? AND ?";
-            $params[] = $custom_from;
-            $params[] = $custom_to;
+// Apply filters based on filter type
+switch ($filter_type) {
+    case 'customer':
+        if (!empty($filter_value)) {
+            $where .= " AND job_orders.customer_name = ?";
+            $params[] = $filter_value;
+        }
+        break;
+        
+    case 'service_type':
+        if (!empty($filter_value)) {
+            $where .= " AND job_orders.service_type = ?";
+            $params[] = $filter_value;
+        }
+        break;
+        
+    case 'date':
+        switch ($filter_value) {
+            case 'day': $where .= " AND DATE(job_orders.created_at) = CURDATE()"; break;
+            case 'week': $where .= " AND YEARWEEK(job_orders.created_at, 1) = YEARWEEK(CURDATE(), 1)"; break;
+            case 'month': $where .= " AND YEAR(job_orders.created_at) = YEAR(CURDATE()) AND MONTH(job_orders.created_at) = MONTH(CURDATE())"; break;
+            case 'year': $where .= " AND YEAR(job_orders.created_at) = YEAR(CURDATE())"; break;
+            case 'custom':
+                if ($custom_from && $custom_to) {
+                    $where .= " AND DATE(job_orders.created_at) BETWEEN ? AND ?";
+                    $params[] = $custom_from;
+                    $params[] = $custom_to;
+                }
+                break;
         }
         break;
 }
 
-// Customer name filter
-if (!empty($search_customer)) {
-    $where .= " AND job_orders.customer_name LIKE ?";
-    $params[] = '%' . $search_customer . '%';
-}
-
-// Get total count for pagination
+// Get total count
 $count_sql = "SELECT COUNT(*) FROM job_orders WHERE $where";
 $count_stmt = $pdo->prepare($count_sql);
 $count_stmt->execute($params);
@@ -75,11 +82,30 @@ $sql = "SELECT job_orders.*,
         LEFT JOIN aircon_models ON job_orders.aircon_model_id = aircon_models.id 
         LEFT JOIN ac_parts ON job_orders.part_id = ac_parts.id
         WHERE $where 
-        ORDER BY job_orders.created_at DESC 
-        LIMIT $limit OFFSET $offset";
+        ORDER BY job_orders.created_at DESC";
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Create display value for filter
+$filter_display_value = $filter_value;
+switch ($filter_type) {
+    case 'customer':
+        $filter_display_value = $filter_value;
+        break;
+    case 'service_type':
+        $filter_display_value = ucfirst($filter_value);
+        break;
+    case 'date':
+        switch ($filter_value) {
+            case 'day': $filter_display_value = 'Today'; break;
+            case 'week': $filter_display_value = 'This Week'; break;
+            case 'month': $filter_display_value = 'This Month'; break;
+            case 'year': $filter_display_value = 'This Year'; break;
+            case 'custom': $filter_display_value = 'Custom Range'; break;
+        }
+        break;
+}
 
 require_once 'includes/header.php';
 ?>
@@ -156,57 +182,90 @@ require_once 'includes/header.php';
             </div>
 
             <!-- Filter Form -->
-            <form method="get" class="mb-4">
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-3">
-                        <label for="filter" class="form-label">Filter By Date</label>
-                        <select name="filter" id="filter" onchange="this.form.submit()" class="form-select">
-                            <option value="">All</option>
-                            <option value="day" <?= $filter=='day'?'selected':'' ?>>Today</option>
-                            <option value="week" <?= $filter=='week'?'selected':'' ?>>This Week</option>
-                            <option value="month" <?= $filter=='month'?'selected':'' ?>>This Month</option>
-                            <option value="year" <?= $filter=='year'?'selected':'' ?>>This Year</option>
-                            <option value="custom" <?= $filter=='custom'?'selected':'' ?>>Custom</option>
-                        </select>
-                    </div>
-                    <?php if ($filter == 'custom'): ?>
-                    <div class="col-md-2">
-                        <label for="from" class="form-label">From</label>
-                        <input type="date" name="from" id="from" value="<?= htmlspecialchars($custom_from) ?>" class="form-control" required>
-                    </div>
-                    <div class="col-md-2">
-                        <label for="to" class="form-label">To</label>
-                        <input type="date" name="to" id="to" value="<?= htmlspecialchars($custom_to) ?>" class="form-control" required>
-                    </div>
-                    <?php endif; ?>
-                    <div class="col-md-3">
-                        <label for="search_customer" class="form-label">Customer Name</label>
-                        <input type="text" name="search_customer" id="search_customer" value="<?= htmlspecialchars($search_customer) ?>" class="form-control" placeholder="Search customer...">
-                    </div>
-                    <div class="col-md-1">
-                        <button type="submit" class="btn btn-primary w-100">Apply</button>
-                    </div>
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Filter Job Orders Report</h5>
+                    <form method="get" class="row g-3" id="filterForm">
+                        <div class="col-md-3">
+                            <label for="filter_type" class="form-label">Filter By</label>
+                            <select name="filter_type" id="filter_type" class="form-select" onchange="handleFilterTypeChange()">
+                                <option value="">Select Filter Type</option>
+                                <option value="customer" <?= $filter_type=='customer'?'selected':'' ?>>Customer</option>
+                                <option value="service_type" <?= $filter_type=='service_type'?'selected':'' ?>>Service Type</option>
+                                <option value="date" <?= $filter_type=='date'?'selected':'' ?>>Date</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="filter_value" class="form-label">Filter Value</label>
+                            <select name="filter_value" id="filter_value" class="form-select" disabled>
+                                <option value="">Select filter type first</option>
+                            </select>
+                        </div>
+                        <div id="custom_date_range" class="col-md-4" style="display: <?= ($filter_type == 'date' && $filter_value == 'custom') ? 'block' : 'none' ?>">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="from" class="form-label">From</label>
+                                    <input type="date" name="from" id="from" value="<?= htmlspecialchars($custom_from) ?>" class="form-control">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="to" class="form-label">To</label>
+                                    <input type="date" name="to" id="to" value="<?= htmlspecialchars($custom_to) ?>" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">Apply Filter</button>
+                        </div>
+                        <div class="col-md-1 d-flex align-items-end">
+                            <button type="button" class="btn btn-secondary w-100" onclick="clearFilters()">Clear</button>
+                        </div>
+                    </form>
                 </div>
-            </form>
+            </div>
 
-            <!-- Cards Summary -->
+            <!-- Filter Info -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <?php if ($filter_type && $filter_value): ?>
+                        <small class="text-muted">
+                            Showing results for: <?= htmlspecialchars(ucfirst($filter_type) . ': ' . $filter_display_value) ?>
+                            <?php if ($filter_type == 'date' && $filter_value == 'custom' && $custom_from && $custom_to): ?>
+                                (<?= date('M d, Y', strtotime($custom_from)) ?> - <?= date('M d, Y', strtotime($custom_to)) ?>)
+                            <?php endif; ?>
+                        </small>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
             <div class="row mb-4">
                 <div class="col-md-6">
-                    <div class="card text-bg-primary mb-3">
+                    <div class="card bg-primary text-white">
                         <div class="card-body">
-                            <h5 class="card-title mb-2">Total Job Orders</h5>
-                            <h3 class="card-text"><?= $total ?></h3>
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Total Job Orders</h6>
+                                    <h4><?= $total ?></h4>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-clipboard-list fa-2x"></i>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-6">
-                    <div class="card text-bg-success mb-3">
+                    <div class="card bg-success text-white">
                         <div class="card-body">
-                            <h5 class="card-title mb-2">Filter</h5>
-                            <h6 class="card-text text-capitalize"><?= htmlspecialchars($filter) ?></h6>
-                            <?php if ($filter == 'custom'): ?>
-                                <div class="small">From: <?= htmlspecialchars($custom_from) ?><br>To: <?= htmlspecialchars($custom_to) ?></div>
-                            <?php endif; ?>
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Active Filter</h6>
+                                    <h4><?= $filter_type ? ucfirst($filter_type) : 'None' ?></h4>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-filter fa-2x"></i>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -216,12 +275,12 @@ require_once 'includes/header.php';
             <div class="card mb-4">
                 <div class="card-body">
                     <div id="job-orders-report-print">
-                        <div class="table-wrapper" style="max-height: 500px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem;">
+                        <div class="table-wrapper" style="max-height: 600px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem;">
                             <div class="table-responsive">
                                 <table class="table table-bordered table-hover align-middle mb-0">
                                 <thead class="table-light">
                                     <tr>
-                                        <th>Order #</th>
+                                        <th>Ticket Number</th>
                                         <th>Customer</th>
                                         <th>Service Type</th>
                                         <th>Brand</th>
@@ -236,7 +295,7 @@ require_once 'includes/header.php';
                                 <tbody>
                                     <?php foreach ($orders as $order): ?>
                                         <tr>
-                                            <td><?= htmlspecialchars($order['job_order_number'] ?? '') ?></td>
+                                            <td><strong><?= htmlspecialchars($order['job_order_number'] ?? '') ?></strong></td>
                                             <td><?= htmlspecialchars($order['customer_name'] ?? '') ?></td>
                                             <td>
                                                 <span class="badge 
@@ -245,6 +304,7 @@ require_once 'includes/header.php';
                                                         case 'installation': echo 'bg-primary'; break;
                                                         case 'repair': echo 'bg-warning text-dark'; break;
                                                         case 'maintenance': echo 'bg-success'; break;
+                                                        case 'cleaning': echo 'bg-primary'; break;
                                                         case 'survey': echo 'bg-info'; break;
                                                         default: echo 'bg-secondary';
                                                     }
@@ -255,7 +315,7 @@ require_once 'includes/header.php';
                                             </td>
                                             <!-- Brand Column -->
                                             <td>
-                                                <?php if ($order['service_type'] == 'installation'): ?>
+                                                <?php if ($order['service_type'] == 'installation' || $order['service_type'] == 'cleaning'): ?>
                                                     <?= htmlspecialchars($order['brand'] ?? 'N/A') ?>
                                                 <?php else: ?>
                                                     <span class="text-muted">-</span>
@@ -263,7 +323,7 @@ require_once 'includes/header.php';
                                             </td>
                                             <!-- Model Column -->
                                             <td>
-                                                <?php if ($order['service_type'] == 'installation'): ?>
+                                                <?php if ($order['service_type'] == 'installation' || $order['service_type'] == 'cleaning'): ?>
                                                     <?= htmlspecialchars($order['model_name'] ?? 'N/A') ?>
                                                 <?php else: ?>
                                                     <span class="text-muted">-</span>
@@ -319,16 +379,7 @@ require_once 'includes/header.php';
                                 </table>
                             </div>
                         </div>
-                        <!-- Pagination -->
-                        <nav>
-                            <ul class="pagination justify-content-center">
-                                <?php for ($i = 1; $i <= ceil($total / $limit); $i++): ?>
-                                    <li class="page-item <?= $i == $page ? 'active' : '' ?>">
-                                        <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $i])) ?>"><?= $i ?></a>
-                                    </li>
-                                <?php endfor; ?>
-                            </ul>
-                        </nav>
+
                         
                         <!-- Summary Section for Print -->
                         <div class="print-summary mt-4" style="border-top: 2px solid #34495e; padding-top: 20px; display: none;">
@@ -354,9 +405,9 @@ require_once 'includes/header.php';
                         </div>
                         <div class="d-flex justify-content-between">
                             <span style="font-weight: 600;">Filter Applied:</span>
-                            <span style="font-weight: bold; color: #e74c3c; font-size: 1.1em;"><?= htmlspecialchars($filter ?: 'All') ?></span>
+                            <span style="font-weight: bold; color: #e74c3c; font-size: 1.1em;"><?= htmlspecialchars($filter_type ?: 'All') ?></span>
                         </div>
-                                        <?php if ($filter == 'custom'): ?>
+                                        <?php if ($filter_type == 'date' && $filter_value == 'custom'): ?>
                                         <div class="d-flex justify-content-between mt-2">
                                             <span style="font-weight: 600;">Date Range:</span>
                                             <span style="font-weight: bold; color: #9b59b6;"><?= htmlspecialchars($custom_from) ?> to <?= htmlspecialchars($custom_to) ?></span>
@@ -613,5 +664,169 @@ function printJobOrdersReport() {
     }
 }
 </style>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Custom JS -->
+<script src="../js/dashboard.js"></script>
+
+<script>
+function handleFilterTypeChange() {
+    updateFilterOptions();
+}
+
+function updateFilterOptions() {
+    const filterType = document.getElementById('filter_type').value;
+    const filterValue = document.getElementById('filter_value');
+    
+    filterValue.disabled = false;
+    
+    if (filterType === 'customer') {
+        // Restore select for customer dropdown
+        if (filterValue.tagName !== 'SELECT') {
+            filterValue.outerHTML = `<select name="filter_value" id="filter_value" class="form-select"></select>`;
+        }
+        const newFilterValue = document.getElementById('filter_value');
+        // Fetch customers from database
+        fetch('../admin/controller/get_filter_options.php?filter_type=customer')
+            .then(response => response.json())
+            .then(data => {
+                newFilterValue.innerHTML = '<option value="">Select Customer</option>';
+                if (data.options && data.options.length > 0) {
+                    data.options.forEach(customer => {
+                        const selected = '<?= $filter_value ?>' === customer ? 'selected' : '';
+                        newFilterValue.innerHTML += `<option value="${customer}" ${selected}>${customer}</option>`;
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching customers:', error);
+                newFilterValue.innerHTML = '<option value="">Error loading customers</option>';
+            });
+    } else if (filterType === 'service_type') {
+        // Restore select for service type dropdown
+        if (filterValue.tagName !== 'SELECT') {
+            filterValue.outerHTML = `<select name="filter_value" id="filter_value" class="form-select"></select>`;
+        }
+        const newFilterValue = document.getElementById('filter_value');
+        // Fetch service types from database
+        fetch('../admin/controller/get_filter_options.php?filter_type=service_type')
+            .then(response => response.json())
+            .then(data => {
+                newFilterValue.innerHTML = '<option value="">Select Service Type</option>';
+                if (data.options && data.options.length > 0) {
+                    data.options.forEach(serviceType => {
+                        const selected = '<?= $filter_value ?>' === serviceType ? 'selected' : '';
+                        newFilterValue.innerHTML += `<option value="${serviceType}" ${selected}>${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)}</option>`;
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching service types:', error);
+                newFilterValue.innerHTML = '<option value="">Error loading service types</option>';
+            });
+    } else if (filterType === 'date') {
+        // Restore select for date options
+        if (filterValue.tagName !== 'SELECT') {
+            filterValue.outerHTML = `<select name="filter_value" id="filter_value" class="form-select"></select>`;
+            const newFilterValue = document.getElementById('filter_value');
+            const dateOptions = [
+                {value: 'day', text: 'Today'},
+                {value: 'week', text: 'This Week'},
+                {value: 'month', text: 'This Month'},
+                {value: 'year', text: 'This Year'},
+                {value: 'custom', text: 'Custom Range'}
+            ];
+            newFilterValue.innerHTML = '<option value="">Select Date Range</option>';
+            dateOptions.forEach(option => {
+                const selected = '<?= $filter_value ?>' === option.value ? 'selected' : '';
+                newFilterValue.innerHTML += `<option value="${option.value}" ${selected}>${option.text}</option>`;
+            });
+            
+            // Add event listener for custom date range
+            newFilterValue.addEventListener('change', function() {
+                if (this.value === 'custom') {
+                    showCustomDateRange();
+                } else {
+                    hideCustomDateRange();
+                }
+            });
+        } else {
+            const dateOptions = [
+                {value: 'day', text: 'Today'},
+                {value: 'week', text: 'This Week'},
+                {value: 'month', text: 'This Month'},
+                {value: 'year', text: 'This Year'},
+                {value: 'custom', text: 'Custom Range'}
+            ];
+            filterValue.innerHTML = '<option value="">Select Date Range</option>';
+            dateOptions.forEach(option => {
+                const selected = '<?= $filter_value ?>' === option.value ? 'selected' : '';
+                filterValue.innerHTML += `<option value="${option.value}" ${selected}>${option.text}</option>`;
+            });
+            
+            // Add event listener for custom date range
+            filterValue.addEventListener('change', function() {
+                if (this.value === 'custom') {
+                    showCustomDateRange();
+                } else {
+                    hideCustomDateRange();
+                }
+            });
+            
+            // Check if custom is already selected on page load
+            if (filterValue.value === 'custom') {
+                showCustomDateRange();
+            }
+        }
+    } else {
+        if (filterValue.tagName !== 'SELECT') {
+            filterValue.outerHTML = `<select name="filter_value" id="filter_value" class="form-select" disabled><option value="">Select filter type first</option></select>`;
+        } else {
+            filterValue.innerHTML = '<option value="">Select filter type first</option>';
+            filterValue.disabled = true;
+        }
+    }
+}
+
+function clearFilters() {
+    window.location.href = window.location.pathname;
+}
+
+function showCustomDateRange() {
+    const customDateDiv = document.getElementById('custom_date_range');
+    if (customDateDiv) {
+        customDateDiv.style.display = 'block';
+    }
+}
+
+function hideCustomDateRange() {
+    const customDateDiv = document.getElementById('custom_date_range');
+    if (customDateDiv) {
+        customDateDiv.style.display = 'none';
+    }
+}
+
+// Initialize filter options on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateFilterOptions();
+    
+    // Check if custom date range should be shown on page load
+    const filterValue = document.getElementById('filter_value');
+    if (filterValue && filterValue.value === 'custom') {
+        showCustomDateRange();
+    }
+});
+
+// Add event listener to filter value changes
+document.addEventListener('change', function(e) {
+    if (e.target.id === 'filter_value' && e.target.value === 'custom') {
+        showCustomDateRange();
+    } else if (e.target.id === 'filter_value' && e.target.value !== 'custom') {
+        hideCustomDateRange();
+    }
+});
+</script>
+
 </body>
 </html>

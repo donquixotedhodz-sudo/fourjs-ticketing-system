@@ -67,14 +67,18 @@ try {
     $stmt = $pdo->query("SELECT id, part_name, part_code, part_category, unit_price FROM ac_parts ORDER BY part_name");
     $acParts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Get all customers with at least one job order (grouped)
+    // Get cleaning services for dropdown
+    $stmt = $pdo->query("SELECT id, service_name, service_description, service_type, base_price, aircon_type FROM cleaning_services ORDER BY service_name");
+    $cleaningServices = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Get all customers with their active order count (excluding completed and cancelled)
     $sql = "
         SELECT 
             c.id as customer_id,
             c.name as customer_name,
             c.phone as customer_phone,
             c.address as customer_address,
-            COUNT(jo.id) as order_count
+            COUNT(CASE WHEN jo.status NOT IN ('completed', 'cancelled') THEN jo.id END) as order_count
         FROM customers c
         LEFT JOIN job_orders jo ON jo.customer_id = c.id
     ";
@@ -83,8 +87,7 @@ try {
         $sql .= " WHERE c.name LIKE ? ";
         $params[] = '%' . $search_customer . '%';
     }
-    $sql .= " GROUP BY c.id
-        HAVING order_count > 0
+    $sql .= " GROUP BY c.id, c.name, c.phone, c.address
         ORDER BY c.name ASC
     ";
     $stmt = $pdo->prepare($sql);
@@ -153,8 +156,8 @@ require_once 'includes/header.php';
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="card-title mb-0">Job Orders</h5>
-                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addJobOrderModal">
-                     <i class="fas fa-plus me-2"></i>Add Survey Order
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#orderTypeModal">
+                     <i class="fas fa-plus me-2"></i>Add Job Order
                  </button>
             </div>
 
@@ -217,7 +220,177 @@ require_once 'includes/header.php';
     </div>
 </div>
 
+<!-- Service Type Selection Modal -->
+<div class="modal fade" id="orderTypeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title">
+                    <i class="fas fa-clipboard-list me-2 text-primary"></i>
+                    Select Service Type
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card h-100 order-type-card border-0 shadow-sm" data-service-type="survey">
+                            <div class="card-body text-center p-4">
+                                <div class="mb-3">
+                                    <i class="fas fa-search fa-3x text-primary"></i>
+                                </div>
+                                <h5 class="card-title mb-3">Survey</h5>
+                                <p class="card-text text-muted">Site inspection and assessment for aircon installation or repair</p>
+                                <div class="mt-auto">
+                                    <span class="badge bg-primary-subtle text-primary">Assessment</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100 order-type-card border-0 shadow-sm" data-service-type="cleaning">
+                            <div class="card-body text-center p-4">
+                                <div class="mb-3">
+                                    <i class="fas fa-spray-can fa-3x text-info"></i>
+                                </div>
+                                <h5 class="card-title mb-3">Cleaning</h5>
+                                <p class="card-text text-muted">Professional aircon cleaning and maintenance services</p>
+                                <div class="mt-auto">
+                                    <span class="badge bg-info-subtle text-info">Maintenance</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
+<!-- Bulk Cleaning Order Modal -->
+<div class="modal fade" id="cleaningOrderModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Multiple Cleaning Orders</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="controller/process_bulk_cleaning.php" method="POST">
+                <div class="modal-body">
+                    <div class="alert alert-info bulk-order-alert">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Bulk Cleaning Orders:</strong> Create multiple cleaning service orders for the same customer.
+                    </div>
+                    <div class="row g-3">
+                        <!-- Customer Information -->
+                        <div class="col-md-6">
+                            <label class="form-label">Customer Name</label>
+                            <input type="text" class="form-control" name="customer_name" id="cleaning_customer_name_autocomplete" autocomplete="off" required>
+                            <div id="cleaning_customer_suggestions" class="list-group position-absolute w-100" style="z-index: 1000;"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" name="customer_phone" id="cleaning_customer_phone" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Address</label>
+                            <textarea class="form-control" name="customer_address" id="cleaning_customer_address" rows="2" required></textarea>
+                        </div>
+
+                        <!-- Order Details -->
+                        <div class="col-md-6">
+                            <label class="form-label">Assign Technician <span class="text-danger">*</span></label>
+                            <select class="form-select" name="assigned_technician_id" required>
+                                <option value="">Select Technician</option>
+                                <?php foreach ($technicians as $tech): ?>
+                                <option value="<?= $tech['id'] ?>"><?= htmlspecialchars($tech['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <!-- Cleaning Orders Container -->
+                        <div class="col-12">
+                            <label class="form-label">Cleaning Orders</label>
+                            <div id="cleaning-orders-container">
+                                <!-- Cleaning Order 1 -->
+                                <div class="cleaning-order-item border rounded p-3 mb-3" data-order="1">
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Cleaning Service</label>
+                                            <select class="form-select cleaning-service-select" name="cleaning_service_id[]" required>
+                                                <option value="">Select Cleaning Service</option>
+                                                <?php foreach ($cleaningServices as $service): ?>
+                                                <option value="<?= $service['id'] ?>" data-price="<?= $service['base_price'] ?>"><?= htmlspecialchars($service['service_name']) ?> - <?= htmlspecialchars($service['service_description']) ?> (₱<?= number_format($service['base_price'], 2) ?>)</option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Aircon Model <small class="text-muted">(Optional)</small></label>
+                                            <select class="form-select cleaning-aircon-model-select" name="aircon_model_id[]">
+                                                <option value="">Select Model</option>
+                                                <?php foreach ($airconModels as $model): ?>
+                                                <option value="<?= $model['id'] ?>"><?= htmlspecialchars($model['brand'] . ' - ' . $model['model_name']) ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Base Price (₱)</label>
+                                            <input type="number" class="form-control cleaning-base-price-input" name="base_price[]" readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-outline-info btn-sm" id="addCleaningOrderBtn">
+                                <i class="fas fa-plus me-2"></i>Add Another Cleaning Order
+                            </button>
+                        </div>
+
+                        <!-- Pricing Summary -->
+                        <div class="col-md-4">
+                            <label class="form-label">Total Additional Fee (₱)</label>
+                            <input type="number" class="form-control" name="total_additional_fee" id="cleaning_bulk_additional_fee" value="0" min="0" step="0.01">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Total Discount (₱)</label>
+                            <input type="number" class="form-control" name="discount" id="cleaning_bulk_discount" value="0" min="0" step="0.01">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Total Price (₱)</label>
+                            <input type="number" class="form-control" name="price" id="cleaning_bulk_total_price" readonly>
+                        </div>
+                    </div>
+                    
+                    <!-- Price Summary -->
+                    <div class="price-summary">
+                        <h6><i class="fas fa-calculator me-2"></i>Price Summary</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <small class="text-muted">Total Base Price:</small>
+                                <div class="fw-bold" id="cleaning_summary_base_price">₱0.00</div>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted">Total Additional Fees:</small>
+                                <div class="fw-bold" id="cleaning_summary_additional_fee">₱0.00</div>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted">Total Discount:</small>
+                                <div class="fw-bold text-danger" id="cleaning_summary_discount">₱0.00</div>
+                            </div>
+                            <div class="col-md-12 mt-2">
+                                <small class="text-muted">Total Price:</small>
+                                <div class="fw-bold text-success fs-5" id="cleaning_summary_total">₱0.00</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-info">Create Cleaning Orders</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
     <!-- Add Job Order Modal -->
     <div class="modal fade" id="addJobOrderModal" tabindex="-1">
@@ -425,9 +598,156 @@ require_once 'includes/header.php';
             return new bootstrap.Tooltip(tooltipTriggerEl)
         })
 
-        // Handle survey order form initialization
+        // Service type selection and modal handling
         document.addEventListener('DOMContentLoaded', function() {
+            const orderTypeCards = document.querySelectorAll('.order-type-card');
+            const orderTypeModal = document.getElementById('orderTypeModal');
             const addJobOrderModal = document.getElementById('addJobOrderModal');
+            const cleaningOrderModal = document.getElementById('cleaningOrderModal');
+
+            orderTypeCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    const serviceType = this.getAttribute('data-service-type');
+                    
+                    // Close the order type modal
+                    const orderTypeModalInstance = bootstrap.Modal.getInstance(orderTypeModal);
+                    orderTypeModalInstance.hide();
+
+                    if (serviceType === 'survey') {
+                        // Set service type for survey
+                        document.getElementById('selected_service_type').value = 'survey';
+                        document.getElementById('display_service_type').value = 'Survey';
+                        
+                        // Set default pricing for survey
+                        const basePriceInput = document.getElementById('base_price');
+                        const totalPriceInput = document.getElementById('total_price');
+                        basePriceInput.value = '500.00'; // Default survey fee
+                        totalPriceInput.value = '500.00';
+                        
+                        // Show survey order modal
+                        const addJobOrderModalInstance = new bootstrap.Modal(addJobOrderModal);
+                        addJobOrderModalInstance.show();
+                    } else if (serviceType === 'cleaning') {
+                        // Show cleaning order modal
+                        const cleaningOrderModalInstance = new bootstrap.Modal(cleaningOrderModal);
+                        cleaningOrderModalInstance.show();
+                    }
+                });
+            });
+
+            // Add hover effect to order type cards
+            orderTypeCards.forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.cursor = 'pointer';
+                    this.style.transform = 'translateY(-5px)';
+                    this.style.transition = 'transform 0.3s ease';
+                    this.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+                });
+
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                    this.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
+                });
+            });
+
+            // Bulk cleaning order functionality
+            let cleaningOrderCounter = 1;
+            document.getElementById('addCleaningOrderBtn').addEventListener('click', function() {
+                cleaningOrderCounter++;
+                const cleaningOrdersContainer = document.getElementById('cleaning-orders-container');
+                const newCleaningOrder = document.createElement('div');
+                newCleaningOrder.className = 'cleaning-order-item border rounded p-3 mb-3';
+                newCleaningOrder.setAttribute('data-order', cleaningOrderCounter);
+                
+                newCleaningOrder.innerHTML = `
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Cleaning Service</label>
+                            <select class="form-select cleaning-service-select" name="cleaning_service_id[]" required>
+                                <option value="">Select Cleaning Service</option>
+                                <?php foreach ($cleaningServices as $service): ?>
+                                <option value="<?= $service['id'] ?>" data-price="<?= $service['base_price'] ?>"><?= htmlspecialchars($service['service_name']) ?> - <?= htmlspecialchars($service['service_description']) ?> (₱<?= number_format($service['base_price'], 2) ?>)</option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Aircon Model <small class="text-muted">(Optional)</small></label>
+                            <select class="form-select cleaning-aircon-model-select" name="aircon_model_id[]">
+                                <option value="">Select Model</option>
+                                <?php foreach ($airconModels as $model): ?>
+                                <option value="<?= $model['id'] ?>"><?= htmlspecialchars($model['brand'] . ' - ' . $model['model_name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Base Price (₱)</label>
+                            <input type="number" class="form-control cleaning-base-price-input" name="base_price[]" readonly>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger mt-2 remove-cleaning-order-btn">
+                        <i class="fas fa-trash me-1"></i>Remove Order
+                    </button>
+                `;
+                
+                cleaningOrdersContainer.appendChild(newCleaningOrder);
+                
+                // Add event listeners to new cleaning order
+                const newCleaningServiceSelect = newCleaningOrder.querySelector('.cleaning-service-select');
+                const newCleaningBasePriceInput = newCleaningOrder.querySelector('.cleaning-base-price-input');
+                const removeCleaningBtn = newCleaningOrder.querySelector('.remove-cleaning-order-btn');
+                
+                newCleaningServiceSelect.addEventListener('change', function() {
+                    const selected = this.options[this.selectedIndex];
+                    const price = selected.getAttribute('data-price');
+                    newCleaningBasePriceInput.value = price ? parseFloat(price).toFixed(2) : '0.00';
+                    calculateCleaningBulkTotal();
+                });
+                
+                removeCleaningBtn.addEventListener('click', function() {
+                    newCleaningOrder.remove();
+                    calculateCleaningBulkTotal();
+                });
+            });
+
+            // Bulk cleaning order price calculation
+            function calculateCleaningBulkTotal() {
+                const cleaningBasePriceInputs = document.querySelectorAll('.cleaning-base-price-input');
+                const cleaningAdditionalFeeInput = document.getElementById('cleaning_bulk_additional_fee');
+                const cleaningDiscountInput = document.getElementById('cleaning_bulk_discount');
+                const cleaningTotalPriceInput = document.getElementById('cleaning_bulk_total_price');
+                
+                let totalBasePrice = 0;
+                
+                cleaningBasePriceInputs.forEach(input => {
+                    totalBasePrice += parseFloat(input.value) || 0;
+                });
+                
+                const totalAdditionalFee = parseFloat(cleaningAdditionalFeeInput.value) || 0;
+                const discount = parseFloat(cleaningDiscountInput.value) || 0;
+                const total = totalBasePrice + totalAdditionalFee - discount;
+                
+                cleaningTotalPriceInput.value = total.toFixed(2);
+                
+                // Update summary
+                document.getElementById('cleaning_summary_base_price').textContent = '₱' + totalBasePrice.toFixed(2);
+                document.getElementById('cleaning_summary_additional_fee').textContent = '₱' + totalAdditionalFee.toFixed(2);
+                document.getElementById('cleaning_summary_discount').textContent = '₱' + discount.toFixed(2);
+                document.getElementById('cleaning_summary_total').textContent = '₱' + total.toFixed(2);
+            }
+
+            // Add event listeners for bulk cleaning order price calculation
+            document.querySelectorAll('.cleaning-service-select').forEach(select => {
+                select.addEventListener('change', function() {
+                    const selected = this.options[this.selectedIndex];
+                    const price = selected.getAttribute('data-price');
+                    const cleaningBasePriceInput = this.closest('.cleaning-order-item').querySelector('.cleaning-base-price-input');
+                    cleaningBasePriceInput.value = price ? parseFloat(price).toFixed(2) : '0.00';
+                    calculateCleaningBulkTotal();
+                });
+            });
+
+            document.getElementById('cleaning_bulk_additional_fee').addEventListener('input', calculateCleaningBulkTotal);
+            document.getElementById('cleaning_bulk_discount').addEventListener('input', calculateCleaningBulkTotal);
 
             // When the add survey order modal opens, automatically set service type to survey
             addJobOrderModal.addEventListener('show.bs.modal', function() {
@@ -448,9 +768,15 @@ require_once 'includes/header.php';
                 const totalPriceInput = document.getElementById('total_price');
 
                 // For survey, aircon model is optional and price is set to default survey fee
+                if (airconModelSelect) {
                     airconModelSelect.required = false;
+                }
+                if (basePriceInput) {
                     basePriceInput.value = '500.00'; // Default survey fee
+                }
+                if (totalPriceInput) {
                     totalPriceInput.value = '500.00';
+                }
                 calculateSingleTotalPrice();
             }
 
@@ -472,37 +798,117 @@ require_once 'includes/header.php';
 
             // Function to calculate total price for single order
             function calculateSingleTotalPrice() {
-                const basePrice = parseFloat(basePriceInput.value) || 0;
-                const additionalFee = parseFloat(additionalFeeInput.value) || 0;
-                const discount = parseFloat(discountInput.value) || 0;
+                const basePrice = parseFloat(basePriceInput ? basePriceInput.value : 0) || 0;
+                const additionalFee = parseFloat(additionalFeeInput ? additionalFeeInput.value : 0) || 0;
+                const discount = parseFloat(discountInput ? discountInput.value : 0) || 0;
                 
                 const total = basePrice + additionalFee - discount;
-                totalPriceInput.value = total.toFixed(2);
+                if (totalPriceInput) {
+                    totalPriceInput.value = total.toFixed(2);
+                }
             }
 
             // Make calculateSingleTotalPrice available globally
             window.calculateSingleTotalPrice = calculateSingleTotalPrice;
 
             // Update base price when aircon model is selected
-            airconModelSelect.addEventListener('change', function() {
-                const selectedModelId = this.value;
-                const serviceType = document.getElementById('selected_service_type').value;
+            if (airconModelSelect) {
+                airconModelSelect.addEventListener('change', function() {
+                    const selectedModelId = this.value;
+                    const serviceType = document.getElementById('selected_service_type').value;
 
-                // For survey, keep the default survey fee regardless of aircon model selection
-                if (serviceType === 'survey') {
-                    basePriceInput.value = '500.00'; // Keep survey fee
-                }
-                calculateSingleTotalPrice();
-            });
+                    // For survey, keep the default survey fee regardless of aircon model selection
+                    if (serviceType === 'survey') {
+                        basePriceInput.value = '500.00'; // Keep survey fee
+                    }
+                    calculateSingleTotalPrice();
+                });
+            }
 
             // Update total price when additional fee or discount changes
-            additionalFeeInput.addEventListener('input', calculateSingleTotalPrice);
-            discountInput.addEventListener('input', calculateSingleTotalPrice);
+            if (additionalFeeInput) {
+                additionalFeeInput.addEventListener('input', calculateSingleTotalPrice);
+            }
+            if (discountInput) {
+                discountInput.addEventListener('input', calculateSingleTotalPrice);
+            }
 
 
         });
 
-        // CUSTOMER AUTOCOMPLETE
+        // CUSTOMER AUTOCOMPLETE FOR CLEANING MODAL
+        document.addEventListener('DOMContentLoaded', function() {
+            const cleaningNameInput = document.getElementById('cleaning_customer_name_autocomplete');
+            const cleaningPhoneInput = document.getElementById('cleaning_customer_phone');
+            const cleaningAddressInput = document.getElementById('cleaning_customer_address');
+            const cleaningSuggestionsBox = document.getElementById('cleaning_customer_suggestions');
+            let cleaningSelectedCustomerId = null;
+
+            if (cleaningNameInput) {
+                cleaningNameInput.addEventListener('input', function() {
+                    const term = this.value.trim();
+                    cleaningSelectedCustomerId = null;
+                    if (term.length < 2) {
+                        cleaningSuggestionsBox.innerHTML = '';
+                        cleaningSuggestionsBox.style.display = 'none';
+                        cleaningPhoneInput.value = '';
+                        cleaningAddressInput.value = '';
+                        cleaningPhoneInput.readOnly = false;
+                        cleaningAddressInput.readOnly = false;
+                        return;
+                    }
+                    fetch('controller/search_customers.php?term=' + encodeURIComponent(term))
+                        .then(res => res.json())
+                        .then(data => {
+                            cleaningSuggestionsBox.innerHTML = '';
+                            if (data.length > 0) {
+                                data.forEach(customer => {
+                                    const item = document.createElement('button');
+                                    item.type = 'button';
+                                    item.className = 'list-group-item list-group-item-action';
+                                    item.textContent = customer.name + (customer.phone ? ' (' + customer.phone + ')' : '');
+                                    item.addEventListener('click', function() {
+                                        cleaningNameInput.value = customer.name;
+                                        cleaningPhoneInput.value = customer.phone || '';
+                                        cleaningAddressInput.value = customer.address || '';
+                                        cleaningPhoneInput.readOnly = !!customer.phone;
+                                        cleaningAddressInput.readOnly = !!customer.address;
+                                        cleaningSelectedCustomerId = customer.id;
+                                        cleaningSuggestionsBox.innerHTML = '';
+                                        cleaningSuggestionsBox.style.display = 'none';
+                                    });
+                                    cleaningSuggestionsBox.appendChild(item);
+                                });
+                                cleaningSuggestionsBox.style.display = 'block';
+                            } else {
+                                cleaningSuggestionsBox.style.display = 'none';
+                            }
+                        });
+                });
+                
+                // Hide suggestions when clicking outside
+                document.addEventListener('click', function(e) {
+                    if (!cleaningSuggestionsBox.contains(e.target) && e.target !== cleaningNameInput) {
+                        cleaningSuggestionsBox.innerHTML = '';
+                        cleaningSuggestionsBox.style.display = 'none';
+                    }
+                });
+                
+                // Allow manual entry for new customers
+                cleaningNameInput.addEventListener('blur', function() {
+                    setTimeout(() => {
+                        if (!cleaningSelectedCustomerId) {
+                            cleaningPhoneInput.value = '';
+                            cleaningAddressInput.value = '';
+                            cleaningPhoneInput.readOnly = false;
+                            cleaningAddressInput.readOnly = false;
+                        }
+                    }, 200);
+                });
+            }
+        });
+
+        // CUSTOMER AUTOCOMPLETE FOR MAIN MODAL
         document.addEventListener('DOMContentLoaded', function() {
             const nameInput = document.getElementById('customer_name_autocomplete');
             const phoneInput = document.getElementById('customer_phone');
@@ -510,75 +916,83 @@ require_once 'includes/header.php';
             const suggestionsBox = document.getElementById('customer_suggestions');
             let selectedCustomerId = null;
 
-            nameInput.addEventListener('input', function() {
-                const term = this.value.trim();
-                selectedCustomerId = null;
-                if (term.length < 2) {
-                    suggestionsBox.innerHTML = '';
-                    suggestionsBox.style.display = 'none';
-                    phoneInput.value = '';
-                    addressInput.value = '';
-                    phoneInput.readOnly = false;
-                    addressInput.readOnly = false;
-                    return;
-                }
-                fetch('controller/search_customers.php?term=' + encodeURIComponent(term))
-                    .then(res => res.json())
-                    .then(data => {
+            if (nameInput) {
+                nameInput.addEventListener('input', function() {
+                    const term = this.value.trim();
+                    selectedCustomerId = null;
+                    if (term.length < 2) {
                         suggestionsBox.innerHTML = '';
-                        if (data.length > 0) {
-                            data.forEach(customer => {
-                                const item = document.createElement('button');
-                                item.type = 'button';
-                                item.className = 'list-group-item list-group-item-action';
-                                item.textContent = customer.name + (customer.phone ? ' (' + customer.phone + ')' : '');
-                                item.addEventListener('click', function() {
-                                    nameInput.value = customer.name;
-                                    phoneInput.value = customer.phone || '';
-                                    addressInput.value = customer.address || '';
-                                    phoneInput.readOnly = !!customer.phone;
-                                    addressInput.readOnly = !!customer.address;
-                                    selectedCustomerId = customer.id;
-                                    suggestionsBox.innerHTML = '';
-                                    suggestionsBox.style.display = 'none';
-                                });
-                                suggestionsBox.appendChild(item);
-                            });
-                            suggestionsBox.style.display = 'block';
-                        } else {
-                            suggestionsBox.style.display = 'none';
-                        }
-                    });
-            });
-            // Hide suggestions when clicking outside
-            document.addEventListener('click', function(e) {
-                if (!suggestionsBox.contains(e.target) && e.target !== nameInput) {
-                    suggestionsBox.innerHTML = '';
-                    suggestionsBox.style.display = 'none';
-                }
-            });
-            // Allow manual entry for new customers
-            nameInput.addEventListener('blur', function() {
-                setTimeout(() => {
-                    if (!selectedCustomerId) {
+                        suggestionsBox.style.display = 'none';
                         phoneInput.value = '';
                         addressInput.value = '';
                         phoneInput.readOnly = false;
                         addressInput.readOnly = false;
+                        return;
                     }
-                }, 200);
-            });
+                    fetch('controller/search_customers.php?term=' + encodeURIComponent(term))
+                        .then(res => res.json())
+                        .then(data => {
+                            suggestionsBox.innerHTML = '';
+                            if (data.length > 0) {
+                                data.forEach(customer => {
+                                    const item = document.createElement('button');
+                                    item.type = 'button';
+                                    item.className = 'list-group-item list-group-item-action';
+                                    item.textContent = customer.name + (customer.phone ? ' (' + customer.phone + ')' : '');
+                                    item.addEventListener('click', function() {
+                                        nameInput.value = customer.name;
+                                        phoneInput.value = customer.phone || '';
+                                        addressInput.value = customer.address || '';
+                                        phoneInput.readOnly = !!customer.phone;
+                                        addressInput.readOnly = !!customer.address;
+                                        selectedCustomerId = customer.id;
+                                        suggestionsBox.innerHTML = '';
+                                        suggestionsBox.style.display = 'none';
+                                    });
+                                    suggestionsBox.appendChild(item);
+                                });
+                                suggestionsBox.style.display = 'block';
+                            } else {
+                                suggestionsBox.style.display = 'none';
+                            }
+                        });
+                });
+            }
+            if (nameInput) {
+                // Hide suggestions when clicking outside
+                document.addEventListener('click', function(e) {
+                    if (!suggestionsBox.contains(e.target) && e.target !== nameInput) {
+                        suggestionsBox.innerHTML = '';
+                        suggestionsBox.style.display = 'none';
+                    }
+                });
+                // Allow manual entry for new customers
+                nameInput.addEventListener('blur', function() {
+                    setTimeout(() => {
+                        if (!selectedCustomerId) {
+                            phoneInput.value = '';
+                            addressInput.value = '';
+                            phoneInput.readOnly = false;
+                            addressInput.readOnly = false;
+                        }
+                    }, 200);
+                });
+            }
         });
 
         // CREATE ANOTHER ORDER BUTTON
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('.create-another-order-btn').forEach(function(btn) {
                 btn.addEventListener('click', function() {
-                    document.getElementById('customer_name_autocomplete').value = btn.getAttribute('data-customer-name');
-                    document.getElementById('customer_phone').value = btn.getAttribute('data-customer-phone');
-                    document.getElementById('customer_address').value = btn.getAttribute('data-customer-address');
-                    document.getElementById('customer_phone').readOnly = !!btn.getAttribute('data-customer-phone');
-                    document.getElementById('customer_address').readOnly = !!btn.getAttribute('data-customer-address');
+                    const nameInput = document.getElementById('customer_name_autocomplete');
+                    const phoneInput = document.getElementById('customer_phone');
+                    const addressInput = document.getElementById('customer_address');
+                    
+                    if (nameInput) nameInput.value = btn.getAttribute('data-customer-name');
+                    if (phoneInput) phoneInput.value = btn.getAttribute('data-customer-phone');
+                    if (addressInput) addressInput.value = btn.getAttribute('data-customer-address');
+                    if (phoneInput) phoneInput.readOnly = !!btn.getAttribute('data-customer-phone');
+                    if (addressInput) addressInput.readOnly = !!btn.getAttribute('data-customer-address');
                 });
             });
         });
@@ -669,5 +1083,67 @@ require_once 'includes/header.php';
             }
         });
     </script>
+
+    <style>
+        .order-type-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .order-type-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .bulk-order-alert {
+            border-left: 4px solid #17a2b8;
+            background-color: #f8f9fa;
+        }
+        
+        .bulk-order-alert i {
+            color: #17a2b8;
+        }
+        
+        #cleaningOrderModal .modal-body {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        
+        .price-summary {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        
+        .price-summary h6 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        
+        .bg-primary-subtle {
+            background-color: rgba(13, 110, 253, 0.1) !important;
+        }
+        
+        .text-primary {
+            color: #0d6efd !important;
+        }
+        
+        .bg-success-subtle {
+            background-color: rgba(25, 135, 84, 0.1) !important;
+        }
+        
+        .text-success {
+            color: #198754 !important;
+        }
+        
+        .bg-info-subtle {
+            background-color: rgba(13, 202, 240, 0.1) !important;
+        }
+        
+        .text-info {
+            color: #0dcaf0 !important;
+        }
+    </style>
 </body>
 </html>

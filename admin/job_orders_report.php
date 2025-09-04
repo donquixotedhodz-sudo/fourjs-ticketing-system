@@ -29,10 +29,6 @@ $tech_stmt = $pdo->query("SELECT id, name FROM technicians ORDER BY name ASC");
 $technicians = $tech_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get filter parameters
-$page = max(1, intval($_GET['page'] ?? 1));
-$show_all = isset($_GET['show_all']) && $_GET['show_all'] == '1';
-$limit = $show_all ? PHP_INT_MAX : 10;
-$offset = $show_all ? 0 : ($page - 1) * $limit;
 
 // New dynamic filter parameters
 $filter_type = $_GET['filter_type'] ?? '';
@@ -94,6 +90,7 @@ $summary_sql = "SELECT
     COUNT(*) as total_orders,
     SUM(CASE WHEN service_type = 'repair' THEN 1 ELSE 0 END) as repair_orders,
     SUM(CASE WHEN service_type = 'installation' THEN 1 ELSE 0 END) as installation_orders,
+    SUM(CASE WHEN service_type = 'cleaning' THEN 1 ELSE 0 END) as cleaning_orders,
     SUM(CASE WHEN service_type = 'maintenance' THEN 1 ELSE 0 END) as maintenance_orders,
     SUM(CASE WHEN service_type = 'survey' THEN 1 ELSE 0 END) as survey_orders
     FROM job_orders WHERE $where";
@@ -109,14 +106,35 @@ $sql = "SELECT job_orders.*,
                ac_parts.part_code,
                ac_parts.part_category
         FROM job_orders 
-        LEFT JOIN aircon_models ON job_orders.aircon_model_id = aircon_models.id AND job_orders.service_type = 'installation'
+        LEFT JOIN aircon_models ON job_orders.aircon_model_id = aircon_models.id AND (job_orders.service_type = 'installation' OR job_orders.service_type = 'cleaning')
         LEFT JOIN ac_parts ON job_orders.part_id = ac_parts.id AND job_orders.service_type = 'repair'
         WHERE $where 
-        ORDER BY job_orders.created_at DESC 
-        LIMIT $limit OFFSET $offset";
+        ORDER BY job_orders.created_at DESC";
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Create display value for filter
+$filter_display_value = $filter_value;
+if ($filter_type == 'technician' && !empty($filter_value)) {
+    // Find technician name by ID
+    foreach ($technicians as $tech) {
+        if ($tech['id'] == $filter_value) {
+            $filter_display_value = $tech['name'];
+            break;
+        }
+    }
+} elseif ($filter_type == 'date') {
+    switch ($filter_value) {
+        case 'day': $filter_display_value = 'Today'; break;
+        case 'week': $filter_display_value = 'This Week'; break;
+        case 'month': $filter_display_value = 'This Month'; break;
+        case 'year': $filter_display_value = 'This Year'; break;
+        case 'custom': $filter_display_value = 'Custom Range'; break;
+    }
+} elseif ($filter_type == 'service_type') {
+    $filter_display_value = ucfirst($filter_value);
+}
 
 require_once 'includes/header.php';
 ?>
@@ -178,7 +196,17 @@ require_once 'includes/header.php';
     </div>
     
     <!-- Report Title for Print -->
-    <div class="print-report-title" style="display: none;">Job Orders Report</div>
+    <div class="print-report-title" style="display: none;">
+        Job Orders Report
+        <?php if ($filter_type): ?>
+            <div style="font-size: 12px; font-weight: normal; margin-top: 5px; color: #666;">
+                Filter: <?= htmlspecialchars(ucfirst($filter_type) . ': ' . $filter_display_value) ?>
+                <?php if ($filter_type == 'date' && $filter_value == 'custom'): ?>
+                    (<?= htmlspecialchars($custom_from) ?> to <?= htmlspecialchars($custom_to) ?>)
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+    </div>
     
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -234,36 +262,10 @@ require_once 'includes/header.php';
                 <div>
                     <?php if ($filter_type && $filter_value): ?>
                         <small class="text-muted">
-                            Showing results for: 
-                            <?php 
-                            switch($filter_type) {
-                                case 'customer':
-                                    echo 'Customer: ' . htmlspecialchars($filter_value);
-                                    break;
-                                case 'service_type':
-                                    echo 'Service Type: ' . ucfirst(htmlspecialchars($filter_value));
-                                    break;
-                                case 'technician':
-                                    $tech_name = '';
-                                    foreach ($technicians as $tech) {
-                                        if ($tech['id'] == $filter_value) {
-                                            $tech_name = $tech['name'];
-                                            break;
-                                        }
-                                    }
-                                    echo 'Technician: ' . htmlspecialchars($tech_name);
-                                    break;
-                                case 'date':
-                                    switch($filter_value) {
-                                        case 'day': echo 'Date: Today (' . date('M d, Y') . ')'; break;
-                                        case 'week': echo 'Date: This Week (' . date('M d', strtotime('monday this week')) . ' - ' . date('M d, Y', strtotime('sunday this week')) . ')'; break;
-                                        case 'month': echo 'Date: ' . date('F Y'); break;
-                                        case 'year': echo 'Date: ' . date('Y'); break;
-                                        case 'custom': echo 'Date: ' . date('M d, Y', strtotime($custom_from)) . ' - ' . date('M d, Y', strtotime($custom_to)); break;
-                                    }
-                                    break;
-                            }
-                            ?>
+                            Showing results for: <?= htmlspecialchars(ucfirst($filter_type) . ': ' . $filter_display_value) ?>
+                            <?php if ($filter_type == 'date' && $filter_value == 'custom'): ?>
+                                (<?= date('M d, Y', strtotime($custom_from)) ?> - <?= date('M d, Y', strtotime($custom_to)) ?>)
+                            <?php endif; ?>
                         </small>
                     <?php endif; ?>
                 </div>
@@ -272,7 +274,7 @@ require_once 'includes/header.php';
 
             <!-- Summary Statistics -->
             <div class="row mb-4">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="card text-bg-primary mb-3">
                         <div class="card-body">
                             <h5 class="card-title mb-2">Total Orders</h5>
@@ -280,7 +282,7 @@ require_once 'includes/header.php';
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="card text-bg-warning mb-3">
                         <div class="card-body">
                             <h5 class="card-title mb-2">Repair Orders</h5>
@@ -288,11 +290,19 @@ require_once 'includes/header.php';
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="card text-bg-info mb-3">
+                <div class="col-md-3">
+                    <div class="card text-bg-success mb-3">
                         <div class="card-body">
                             <h5 class="card-title mb-2">Installation Orders</h5>
                             <h3 class="card-text"><?= $summary['installation_orders'] ?></h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-bg-info mb-3">
+                        <div class="card-body">
+                            <h5 class="card-title mb-2">Cleaning Orders</h5>
+                            <h3 class="card-text"><?= $summary['cleaning_orders'] ?></h3>
                         </div>
                     </div>
                 </div>
@@ -302,7 +312,7 @@ require_once 'includes/header.php';
             <div class="card mb-4" style="position: relative;">
                 <div class="card-body">
                     <div id="job-orders-report-print">
-                        <div class="table-responsive">
+                        <div class="table-wrapper" style="max-height: 500px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem;">
                             <table class="table table-bordered table-hover align-middle">
                                 <thead class="table-light">
                                     <tr>
@@ -325,26 +335,36 @@ require_once 'includes/header.php';
                                             <td><?= htmlspecialchars($order['job_order_number'] ?? '') ?></td>
                                             <td><?= htmlspecialchars($order['customer_name'] ?? '') ?></td>
                                             <td>
-                                                <span class="badge <?= $order['service_type'] == 'installation' ? 'bg-primary' : 'bg-warning' ?>">
-                                                    <?= ucfirst(htmlspecialchars($order['service_type'] ?? '')) ?>
-                                                </span>
-                                            </td>
+                                <?php
+                                $badge_class = '';
+                                switch($order['service_type']) {
+                                    case 'installation': $badge_class = 'bg-primary'; break;
+                                    case 'cleaning': $badge_class = 'bg-info'; break;
+                                    case 'repair': $badge_class = 'bg-warning'; break;
+                                    case 'survey': $badge_class = 'bg-secondary'; break;
+                                    default: $badge_class = 'bg-secondary';
+                                }
+                                ?>
+                                <span class="badge <?= $badge_class ?>">
+                                    <?= ucfirst(htmlspecialchars($order['service_type'] ?? '')) ?>
+                                </span>
+                            </td>
                                             <!-- Brand Column -->
-                                            <td>
-                                                <?php if ($order['service_type'] == 'installation'): ?>
-                                                    <?= htmlspecialchars($order['brand'] ?? 'N/A') ?>
-                                                <?php else: ?>
-                                                    <span class="text-muted">-</span>
-                                                <?php endif; ?>
-                                            </td>
-                                            <!-- Model Column -->
-                                            <td>
-                                                <?php if ($order['service_type'] == 'installation'): ?>
-                                                    <?= htmlspecialchars($order['model_name'] ?? 'N/A') ?>
-                                                <?php else: ?>
-                                                    <span class="text-muted">-</span>
-                                                <?php endif; ?>
-                                            </td>
+                            <td>
+                                <?php if ($order['service_type'] == 'installation' || $order['service_type'] == 'cleaning'): ?>
+                                    <?= htmlspecialchars($order['brand'] ?? 'N/A') ?>
+                                <?php else: ?>
+                                    <span class="text-muted">-</span>
+                                <?php endif; ?>
+                            </td>
+                            <!-- Model Column -->
+                            <td>
+                                <?php if ($order['service_type'] == 'installation' || $order['service_type'] == 'cleaning'): ?>
+                                    <?= htmlspecialchars($order['model_name'] ?? 'N/A') ?>
+                                <?php else: ?>
+                                    <span class="text-muted">-</span>
+                                <?php endif; ?>
+                            </td>
                                             <!-- Part Code Column -->
                                             <td>
                                                 <?php if ($order['service_type'] == 'repair'): ?>
@@ -437,33 +457,7 @@ require_once 'includes/header.php';
                                 </div>
                             </div>
                         </div>
-                        <!-- Pagination -->
-                        <?php 
-                        $pagination_params = [
-                            'filter_type' => $filter_type,
-                            'filter_value' => $filter_value,
-                            'from' => $custom_from,
-                            'to' => $custom_to
-                        ];
-                        ?>
-                        <nav>
-                            <ul class="pagination justify-content-center">
-                                <?php if (!$show_all && $total > 10): ?>
-                                    <?php for ($i = 1; $i <= ceil($total / 10); $i++): ?>
-                                        <li class="page-item <?= $i == $page ? 'active' : '' ?>">
-                                            <a class="page-link pagination-link" href="?<?= http_build_query(array_merge($pagination_params, ['page' => $i])) ?>" data-page="<?= $i ?>"><?= $i ?></a>
-                                        </li>
-                                    <?php endfor; ?>
-                                    <li class="page-item">
-                                        <a class="page-link" href="?<?= http_build_query(array_merge($pagination_params, ['show_all' => '1'])) ?>">Show All</a>
-                                    </li>
-                                <?php elseif ($show_all): ?>
-                                    <li class="page-item">
-                                        <a class="page-link" href="?<?= http_build_query(array_merge($pagination_params, ['page' => '1'])) ?>">Show Pages</a>
-                                    </li>
-                                <?php endif; ?>
-                            </ul>
-                        </nav>
+
                         
                         <!-- Loading overlay -->
                         <div id="loading-overlay" class="loading-overlay" style="display: none;">
@@ -846,6 +840,13 @@ document.addEventListener('DOMContentLoaded', function() {
     /* Table styling for clean print */
     .table-responsive {
         overflow: visible !important;
+    }
+    
+    .table-wrapper {
+        max-height: none !important;
+        overflow: visible !important;
+        border: none !important;
+        border-radius: 0 !important;
     }
     
     .table {

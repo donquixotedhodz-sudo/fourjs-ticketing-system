@@ -16,32 +16,79 @@ try {
     die("Database error: " . $e->getMessage());
 }
 
-// Filter logic (simplified for demo)
-$filter = $_GET['filter'] ?? 'day';
+// Fetch technicians for dropdown
+$tech_stmt = $pdo->query("SELECT id, name FROM technicians ORDER BY name ASC");
+$technicians = $tech_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get filter parameters
+$filter_type = $_GET['filter_type'] ?? '';
+$filter_value = $_GET['filter_value'] ?? '';
 $custom_from = $_GET['from'] ?? '';
 $custom_to = $_GET['to'] ?? '';
-$where = '';
+
+$where = '1';
 $params = [];
-switch ($filter) {
-    case 'day': $where = "DATE(completed_at) = CURDATE()"; break;
-    case 'week': $where = "YEARWEEK(completed_at, 1) = YEARWEEK(CURDATE(), 1)"; break;
-    case 'month': $where = "YEAR(completed_at) = YEAR(CURDATE()) AND MONTH(completed_at) = MONTH(CURDATE())"; break;
-    case 'year': $where = "YEAR(completed_at) = YEAR(CURDATE())"; break;
-    case 'custom':
-        if ($custom_from && $custom_to) {
-            $where = "DATE(completed_at) BETWEEN ? AND ?";
-            $params = [$custom_from, $custom_to];
+
+// Apply filters based on filter type
+switch ($filter_type) {
+    case 'customer':
+        if (!empty($filter_value)) {
+            $where .= " AND job_orders.customer_name = ?";
+            $params[] = $filter_value;
+        }
+        break;
+        
+    case 'technician':
+        if (!empty($filter_value)) {
+            $where .= " AND job_orders.assigned_technician_id = ?";
+            $params[] = $filter_value;
+        }
+        break;
+        
+    case 'date':
+        switch ($filter_value) {
+            case 'day': $where .= " AND DATE(job_orders.completed_at) = CURDATE()"; break;
+            case 'week': $where .= " AND YEARWEEK(job_orders.completed_at, 1) = YEARWEEK(CURDATE(), 1)"; break;
+            case 'month': $where .= " AND YEAR(job_orders.completed_at) = YEAR(CURDATE()) AND MONTH(job_orders.completed_at) = MONTH(CURDATE())"; break;
+            case 'year': $where .= " AND YEAR(job_orders.completed_at) = YEAR(CURDATE())"; break;
+            case 'custom':
+                if ($custom_from && $custom_to) {
+                    $where .= " AND DATE(job_orders.completed_at) BETWEEN ? AND ?";
+                    $params[] = $custom_from;
+                    $params[] = $custom_to;
+                }
+                break;
         }
         break;
 }
-$sql = "SELECT * FROM job_orders WHERE status = 'completed'";
-if ($where) $sql .= " AND $where";
+$sql = "SELECT * FROM job_orders WHERE status = 'completed' AND $where";
+// Remove the conditional check since $where now always has a value (starts with '1')
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $sales = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $total_sales = 0;
 foreach ($sales as $sale) {
     $total_sales += $sale['price'];
+}
+
+// Create display value for filter
+$filter_display_value = $filter_value;
+if ($filter_type == 'technician' && !empty($filter_value)) {
+    // Find technician name by ID
+    foreach ($technicians as $tech) {
+        if ($tech['id'] == $filter_value) {
+            $filter_display_value = $tech['name'];
+            break;
+        }
+    }
+} elseif ($filter_type == 'date') {
+    switch ($filter_value) {
+        case 'day': $filter_display_value = 'Today'; break;
+        case 'week': $filter_display_value = 'This Week'; break;
+        case 'month': $filter_display_value = 'This Month'; break;
+        case 'year': $filter_display_value = 'This Year'; break;
+        case 'custom': $filter_display_value = 'Custom Range'; break;
+    }
 }
 
 // Fetch admin info for header
@@ -113,7 +160,17 @@ require_once 'includes/header.php';
     </div>
     
     <!-- Report Title for Print -->
-    <div class="print-report-title" style="display: none;">Sales Report</div>
+    <div class="print-report-title" style="display: none;">
+        Sales Report
+        <?php if ($filter_type): ?>
+            <div style="font-size: 12px; font-weight: normal; margin-top: 5px; color: #666;">
+                Filter: <?= htmlspecialchars(ucfirst($filter_type) . ': ' . $filter_display_value) ?>
+                <?php if ($filter_type == 'date' && $filter_value == 'custom'): ?>
+                    (<?= htmlspecialchars($custom_from) ?> to <?= htmlspecialchars($custom_to) ?>)
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+    </div>
     
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -127,57 +184,80 @@ require_once 'includes/header.php';
     <div class="card mb-4">
         <div class="card-body">
             <h5 class="card-title mb-3">Filter Sales Report</h5>
-            <form method="get" class="row g-3">
-                <div class="col-md-4">
-                    <label for="filter" class="form-label">Filter By</label>
-                    <select name="filter" id="filter" onchange="this.form.submit()" class="form-select">
-                        <option value="day" <?= $filter=='day'?'selected':'' ?>>Today</option>
-                        <option value="week" <?= $filter=='week'?'selected':'' ?>>This Week</option>
-                        <option value="month" <?= $filter=='month'?'selected':'' ?>>This Month</option>
-                        <option value="year" <?= $filter=='year'?'selected':'' ?>>This Year</option>
-                        <option value="custom" <?= $filter=='custom'?'selected':'' ?>>Custom</option>
+            <form method="get" class="row g-3" id="filterForm">
+                <div class="col-md-3">
+                    <label for="filter_type" class="form-label">Filter By</label>
+                    <select name="filter_type" id="filter_type" class="form-select" onchange="handleFilterTypeChange()">
+                        <option value="">Select Filter Type</option>
+                        <option value="customer" <?= $filter_type=='customer'?'selected':'' ?>>Customer</option>
+                        <option value="technician" <?= $filter_type=='technician'?'selected':'' ?>>Technician</option>
+                        <option value="date" <?= $filter_type=='date'?'selected':'' ?>>Date</option>
                     </select>
                 </div>
-                <?php if ($filter == 'custom'): ?>
                 <div class="col-md-3">
+                    <label for="filter_value" class="form-label">Filter Value</label>
+                    <select name="filter_value" id="filter_value" class="form-select" disabled>
+                        <option value="">Select filter type first</option>
+                    </select>
+                </div>
+                <?php if ($filter_type == 'date' && $filter_value == 'custom'): ?>
+                <div class="col-md-2">
                     <label for="from" class="form-label">From</label>
                     <input type="date" name="from" id="from" value="<?= htmlspecialchars($custom_from) ?>" class="form-control" required>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label for="to" class="form-label">To</label>
                     <input type="date" name="to" id="to" value="<?= htmlspecialchars($custom_to) ?>" class="form-control" required>
                 </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary w-100">Apply</button>
-                </div>
                 <?php endif; ?>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Apply Filter</button>
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="button" class="btn btn-secondary w-100" onclick="clearFilters()">Clear</button>
+                </div>
             </form>
         </div>
     </div>
+
+            <!-- Print Button and Filter Info -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <?php if ($filter_type && $filter_value): ?>
+                        <small class="text-muted">
+                            Showing results for: <?= htmlspecialchars(ucfirst($filter_type) . ': ' . $filter_display_value) ?>
+                            <?php if ($filter_type == 'date' && $filter_value == 'custom'): ?>
+                                (<?= date('M d, Y', strtotime($custom_from)) ?> - <?= date('M d, Y', strtotime($custom_to)) ?>)
+                            <?php endif; ?>
+                        </small>
+                    <?php endif; ?>
+                </div>
+            </div>
+
             <div class="row mb-4">
                 <div class="col-md-4">
-                    <div class="card text-bg-primary mb-3">
+                    <div class="card text-bg-primary mb-3 compact-card">
                         <div class="card-body">
-                            <h5 class="card-title mb-2">Total Sales</h5>
-                            <h3 class="card-text">₱<?= number_format($total_sales, 2) ?></h3>
+                            <h6 class="card-title mb-1">Total Sales</h6>
+                            <h4 class="card-text mb-0">₱<?= number_format($total_sales, 2) ?></h4>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="card text-bg-info mb-3">
+                    <div class="card text-bg-info mb-3 compact-card">
                         <div class="card-body">
-                            <h5 class="card-title mb-2">Number of Transactions</h5>
-                            <h3 class="card-text"><?= count($sales) ?></h3>
+                            <h6 class="card-title mb-1">Number of Transactions</h6>
+                            <h4 class="card-text mb-0"><?= count($sales) ?></h4>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="card text-bg-success mb-3">
+                    <div class="card text-bg-success mb-3 compact-card">
                         <div class="card-body">
-                            <h5 class="card-title mb-2">Filter</h5>
-                            <h6 class="card-text text-capitalize"><?= htmlspecialchars($filter) ?></h6>
-                            <?php if ($filter == 'custom'): ?>
-                                <div class="small">From: <?= htmlspecialchars($custom_from) ?><br>To: <?= htmlspecialchars($custom_to) ?></div>
+                            <h6 class="card-title mb-1">Filter</h6>
+                            <p class="card-text text-capitalize mb-0"><?= htmlspecialchars($filter_type ? $filter_type . ': ' . $filter_display_value : 'All Records') ?></p>
+                            <?php if ($filter_type == 'date' && $filter_value == 'custom'): ?>
+                                <div class="small mt-1">From: <?= htmlspecialchars($custom_from) ?><br>To: <?= htmlspecialchars($custom_to) ?></div>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -254,6 +334,27 @@ function printSalesReport() {
 
 </script>
 <style>
+/* Compact card styling for summary cards */
+.compact-card .card-body {
+    padding: 0.75rem !important;
+}
+
+.compact-card .card-title {
+    font-size: 0.875rem !important;
+    font-weight: 600 !important;
+    margin-bottom: 0.25rem !important;
+}
+
+.compact-card .card-text {
+    font-size: 1.25rem !important;
+    font-weight: 700 !important;
+    margin-bottom: 0 !important;
+}
+
+.compact-card {
+    min-height: auto !important;
+}
+
 /* Make first column (Ticket Number) bold for screen view */
 .table th:nth-child(1), .table td:nth-child(1) {
     font-weight: bold !important;
@@ -355,6 +456,13 @@ function printSalesReport() {
     }
 
     /* Table styling for clean print */
+    .table-wrapper {
+        max-height: none !important;
+        overflow: visible !important;
+        border: none !important;
+        border-radius: 0 !important;
+    }
+    
     .table-responsive {
         overflow: visible !important;
     }
@@ -453,5 +561,116 @@ function printSalesReport() {
     }
 }
 </style>
+
+<script>
+let filterOptions = {
+    customer: [],
+    technician: [],
+    date: [
+        { value: 'day', label: 'Today' },
+        { value: 'week', label: 'This Week' },
+        { value: 'month', label: 'This Month' },
+        { value: 'year', label: 'This Year' },
+        { value: 'custom', label: 'Custom Range' }
+    ]
+};
+
+function handleFilterTypeChange() {
+    const filterType = document.getElementById('filter_type').value;
+    const filterValue = document.getElementById('filter_value');
+    const customDateInputs = document.querySelectorAll('input[type="date"]');
+    
+    // Hide custom date inputs by default
+    customDateInputs.forEach(input => {
+        const parent = input.closest('.col-md-2');
+        if (parent) parent.style.display = 'none';
+    });
+    
+    if (!filterType) {
+        filterValue.innerHTML = '<option value="">Select filter type first</option>';
+        filterValue.disabled = true;
+        return;
+    }
+    
+    filterValue.disabled = false;
+    
+    if (filterType === 'customer' || filterType === 'technician') {
+        // Fetch options from server
+        fetch(`controller/get_filter_options.php?filter_type=${filterType}`)
+            .then(response => response.json())
+            .then(data => {
+                filterValue.innerHTML = '<option value="">Select ' + filterType + '</option>';
+                
+                if (data.options && data.options.length > 0) {
+                    if (filterType === 'technician') {
+                        data.options.forEach(option => {
+                            filterValue.innerHTML += `<option value="${option.value}">${option.label}</option>`;
+                        });
+                    } else {
+                        data.options.forEach(option => {
+                            filterValue.innerHTML += `<option value="${option}">${option}</option>`;
+                        });
+                    }
+                }
+                
+                // Set selected value if exists
+                const currentValue = '<?= htmlspecialchars($filter_value) ?>';
+                if (currentValue) {
+                    filterValue.value = currentValue;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching filter options:', error);
+                filterValue.innerHTML = '<option value="">Error loading options</option>';
+            });
+    } else if (filterType === 'date') {
+        filterValue.innerHTML = '<option value="">Select date range</option>';
+        filterOptions.date.forEach(option => {
+            filterValue.innerHTML += `<option value="${option.value}">${option.label}</option>`;
+        });
+        
+        // Set selected value if exists
+        const currentValue = '<?= htmlspecialchars($filter_value) ?>';
+        if (currentValue) {
+            filterValue.value = currentValue;
+            handleFilterValueChange();
+        }
+    }
+}
+
+function handleFilterValueChange() {
+    const filterType = document.getElementById('filter_type').value;
+    const filterValue = document.getElementById('filter_value').value;
+    const customDateInputs = document.querySelectorAll('input[type="date"]');
+    
+    if (filterType === 'date' && filterValue === 'custom') {
+        customDateInputs.forEach(input => {
+            const parent = input.closest('.col-md-2');
+            if (parent) parent.style.display = 'block';
+        });
+    } else {
+        customDateInputs.forEach(input => {
+            const parent = input.closest('.col-md-2');
+            if (parent) parent.style.display = 'none';
+        });
+    }
+}
+
+function clearFilters() {
+    window.location.href = window.location.pathname;
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const filterType = document.getElementById('filter_type').value;
+    if (filterType) {
+        handleFilterTypeChange();
+    }
+    
+    // Add event listener for filter value change
+    document.getElementById('filter_value').addEventListener('change', handleFilterValueChange);
+});
+</script>
+
 </body>
 </html>
