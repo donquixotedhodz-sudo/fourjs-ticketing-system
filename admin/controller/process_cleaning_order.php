@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->commit();
         
         $_SESSION['success'] = 'Cleaning service order created successfully! Job Order Number: ' . $job_order_number;
-        header('Location: ../orders.php');
+        header('Location: ../customer_orders.php?customer_id=' . $customer_id);
         exit();
         
     } catch (Exception $e) {

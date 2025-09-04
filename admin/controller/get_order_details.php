@@ -33,7 +33,7 @@ try {
             t.phone as technician_phone,
             t.profile_picture as technician_profile
         FROM job_orders jo 
-        LEFT JOIN aircon_models am ON jo.aircon_model_id = am.id AND jo.service_type = 'installation'
+        LEFT JOIN aircon_models am ON jo.aircon_model_id = am.id AND (jo.service_type = 'installation' OR jo.service_type = 'cleaning')
         LEFT JOIN ac_parts ap ON jo.part_id = ap.id AND jo.service_type = 'repair'
         LEFT JOIN technicians t ON jo.assigned_technician_id = t.id
         WHERE jo.id = ?

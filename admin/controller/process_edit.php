@@ -87,8 +87,18 @@ try {
         $_POST['order_id']
     ]);
 
+    // Get customer_id for redirect
+    $customer_stmt = $pdo->prepare("SELECT customer_id FROM job_orders WHERE id = ?");
+    $customer_stmt->execute([$_POST['order_id']]);
+    $customer_data = $customer_stmt->fetch(PDO::FETCH_ASSOC);
+    
     $_SESSION['success'] = "Order has been updated successfully.";
-    header('Location: ../orders.php');
+    
+    if ($customer_data && $customer_data['customer_id']) {
+        header('Location: ../customer_orders.php?customer_id=' . $customer_data['customer_id']);
+    } else {
+        header('Location: ../orders.php');
+    }
     exit();
 
 } catch (PDOException $e) {

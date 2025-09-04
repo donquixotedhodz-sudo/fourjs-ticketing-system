@@ -101,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->commit();
         
         $_SESSION['success'] = 'Bulk cleaning orders created successfully! Job Order Numbers: ' . implode(', ', $created_orders);
-        header('Location: ../orders.php');
+        header('Location: ../customer_orders.php?customer_id=' . $customer_id);
         exit();
         
     } catch (Exception $e) {

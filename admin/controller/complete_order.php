@@ -33,6 +33,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($stmt->rowCount() > 0) {
             $_SESSION['success_message'] = "Job order has been marked as completed!";
+            
+            // Get customer_id for redirect
+            $customer_stmt = $pdo->prepare("SELECT customer_id FROM job_orders WHERE id = ?");
+            $customer_stmt->execute([$order_id]);
+            $customer_data = $customer_stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($customer_data && $customer_data['customer_id']) {
+                header('Location: ../customer_orders.php?customer_id=' . $customer_data['customer_id']);
+                exit();
+            }
         } else {
             $_SESSION['error_message'] = "No changes were made to the job order.";
         }
@@ -46,4 +56,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Redirect back to orders page
 header('Location: ../orders.php');
-exit(); 
+exit();

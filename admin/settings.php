@@ -165,7 +165,7 @@ require_once 'includes/header.php';
                 </div>
                 <div class="modal-body">
                     <!-- Create Admin Form -->
-                    <form action="../controller/create_admin.php" method="POST" enctype="multipart/form-data">
+                    <form action="controller/create_admin.php" method="POST" enctype="multipart/form-data">
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
