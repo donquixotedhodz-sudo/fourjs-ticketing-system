@@ -188,18 +188,18 @@ require_once 'includes/header.php';
                                 </div>
                                 <div class="mb-3">
                                     <label for="adminPassword" class="form-label">Password</label>
-                                    <div class="input-group">
-                                        <input type="password" class="form-control" id="adminPassword" name="password" required>
-                                        <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                    <div class="position-relative">
+                                        <input type="password" class="form-control" id="adminPassword" name="password" required style="padding-right: 40px;">
+                                        <button class="btn position-absolute top-50 end-0 translate-middle-y me-2" type="button" id="togglePassword" style="border: none; background: none; color: #6c757d; z-index: 10; display: none;">
                                             <i class="fas fa-eye"></i>
                                         </button>
                                     </div>
                                 </div>
                                 <div class="mb-3">
                                     <label for="confirmAdminPassword" class="form-label">Confirm Password</label>
-                                    <div class="input-group">
-                                        <input type="password" class="form-control" id="confirmAdminPassword" name="confirm_password" required>
-                                        <button class="btn btn-outline-secondary" type="button" id="toggleConfirmPassword">
+                                    <div class="position-relative">
+                                        <input type="password" class="form-control" id="confirmAdminPassword" name="confirm_password" required style="padding-right: 40px;">
+                                        <button class="btn position-absolute top-50 end-0 translate-middle-y me-2" type="button" id="toggleConfirmPassword" style="border: none; background: none; color: #6c757d; z-index: 10; display: none;">
                                             <i class="fas fa-eye"></i>
                                         </button>
                                     </div>
@@ -286,18 +286,39 @@ require_once 'includes/header.php';
 
     <script>
         // Password toggle functionality for create admin modal
-        document.getElementById('togglePassword').addEventListener('click', function() {
-            const passwordInput = document.getElementById('adminPassword');
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordInput.setAttribute('type', type);
+        const adminPasswordInput = document.getElementById('adminPassword');
+        const togglePasswordBtn = document.getElementById('togglePassword');
+        const confirmAdminPasswordInput = document.getElementById('confirmAdminPassword');
+        const toggleConfirmPasswordBtn = document.getElementById('toggleConfirmPassword');
+
+        // Show/hide toggle button based on input content for password field
+        adminPasswordInput.addEventListener('input', function() {
+            if (adminPasswordInput.value.length > 0) {
+                togglePasswordBtn.style.display = 'block';
+            } else {
+                togglePasswordBtn.style.display = 'none';
+            }
+        });
+
+        // Show/hide toggle button based on input content for confirm password field
+        confirmAdminPasswordInput.addEventListener('input', function() {
+            if (confirmAdminPasswordInput.value.length > 0) {
+                toggleConfirmPasswordBtn.style.display = 'block';
+            } else {
+                toggleConfirmPasswordBtn.style.display = 'none';
+            }
+        });
+
+        togglePasswordBtn.addEventListener('click', function() {
+            const type = adminPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            adminPasswordInput.setAttribute('type', type);
             this.querySelector('i').classList.toggle('fa-eye');
             this.querySelector('i').classList.toggle('fa-eye-slash');
         });
 
-        document.getElementById('toggleConfirmPassword').addEventListener('click', function() {
-            const passwordInput = document.getElementById('confirmAdminPassword');
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordInput.setAttribute('type', type);
+        toggleConfirmPasswordBtn.addEventListener('click', function() {
+            const type = confirmAdminPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            confirmAdminPasswordInput.setAttribute('type', type);
             this.querySelector('i').classList.toggle('fa-eye');
             this.querySelector('i').classList.toggle('fa-eye-slash');
         });
