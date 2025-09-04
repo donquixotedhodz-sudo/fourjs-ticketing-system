@@ -43,8 +43,8 @@ try {
     $params = [];
 
     if (!empty($search_customer)) {
-        $sql .= " AND jo.customer_name LIKE ?";
-        $params[] = '%' . $search_customer . '%';
+        $sql .= " AND jo.customer_id = ?";
+        $params[] = $search_customer;
     }
 
     if (!empty($filter_service)) {
@@ -85,6 +85,10 @@ try {
     // Get technicians for dropdown
     $stmt = $pdo->query("SELECT id, name FROM technicians");
     $technicians = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Get all customers for dropdown
+    $stmt = $pdo->query("SELECT id, name FROM customers ORDER BY name ASC");
+    $allCustomers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
     die("Database error: " . $e->getMessage());
@@ -161,8 +165,15 @@ require_once 'includes/header.php';
             <h5 class="card-title mb-3">Filter Archived Orders</h5>
             <form method="GET" action="" class="row g-3">
                 <div class="col-md-3">
-                    <label for="search_customer" class="form-label">Search Customer</label>
-                    <input type="text" class="form-control" id="search_customer" name="search_customer" value="<?= htmlspecialchars($search_customer) ?>" placeholder="Enter customer name">
+                    <label for="search_customer" class="form-label">Select Customer</label>
+                    <select class="form-select" id="search_customer" name="search_customer">
+                        <option value="">All Customers</option>
+                        <?php foreach ($allCustomers as $customer): ?>
+                        <option value="<?= $customer['id'] ?>" <?= $search_customer == $customer['id'] ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($customer['name']) ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 <div class="col-md-3">
                     <label for="filter_service" class="form-label">Service Type</label>
@@ -170,6 +181,8 @@ require_once 'includes/header.php';
                         <option value="">All Service Types</option>
                         <option value="installation" <?= $filter_service === 'installation' ? 'selected' : '' ?>>Installation</option>
                         <option value="repair" <?= $filter_service === 'repair' ? 'selected' : '' ?>>Repair</option>
+                        <option value="cleaning" <?= $filter_service === 'cleaning' ? 'selected' : '' ?>>Cleaning</option>
+                        <option value="survey" <?= $filter_service === 'survey' ? 'selected' : '' ?>>Survey</option>
                     </select>
                 </div>
                 <div class="col-md-3">
@@ -676,6 +689,94 @@ require_once 'includes/header.php';
                 });
             });
         });
+    </script>
+
+    <script>
+    // Auto-suggestion functionality for customer search
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('search_customer');
+        const suggestionsDiv = document.getElementById('customer_suggestions');
+        let debounceTimer;
+
+        searchInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            const query = this.value.trim();
+
+            if (query.length < 2) {
+                suggestionsDiv.style.display = 'none';
+                return;
+            }
+
+            debounceTimer = setTimeout(() => {
+                fetch(`controller/get_customer_suggestions.php?query=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(customers => {
+                        suggestionsDiv.innerHTML = '';
+                        
+                        if (customers.length > 0) {
+                            customers.forEach(customer => {
+                                const item = document.createElement('button');
+                                item.type = 'button';
+                                item.className = 'list-group-item list-group-item-action';
+                                item.textContent = customer;
+                                item.addEventListener('click', function() {
+                                    searchInput.value = customer;
+                                    suggestionsDiv.style.display = 'none';
+                                });
+                                suggestionsDiv.appendChild(item);
+                            });
+                            suggestionsDiv.style.display = 'block';
+                        } else {
+                            suggestionsDiv.style.display = 'none';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching suggestions:', error);
+                        suggestionsDiv.style.display = 'none';
+                    });
+            }, 300);
+        });
+
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                suggestionsDiv.style.display = 'none';
+            }
+        });
+
+        // Handle keyboard navigation
+        searchInput.addEventListener('keydown', function(e) {
+            const items = suggestionsDiv.querySelectorAll('.list-group-item');
+            let activeItem = suggestionsDiv.querySelector('.list-group-item.active');
+            
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!activeItem) {
+                    items[0]?.classList.add('active');
+                } else {
+                    activeItem.classList.remove('active');
+                    const nextItem = activeItem.nextElementSibling || items[0];
+                    nextItem.classList.add('active');
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (!activeItem) {
+                    items[items.length - 1]?.classList.add('active');
+                } else {
+                    activeItem.classList.remove('active');
+                    const prevItem = activeItem.previousElementSibling || items[items.length - 1];
+                    prevItem.classList.add('active');
+                }
+            } else if (e.key === 'Enter') {
+                if (activeItem) {
+                    e.preventDefault();
+                    activeItem.click();
+                }
+            } else if (e.key === 'Escape') {
+                suggestionsDiv.style.display = 'none';
+            }
+        });
+    });
     </script>
 </body>
 </html>

@@ -18,7 +18,7 @@ try {
     $technician = $stmt->fetch(PDO::FETCH_ASSOC);
 
     // Handle search functionality
-    $search_ticket = isset($_GET['search_ticket']) ? trim($_GET['search_ticket']) : '';
+    $search_customer = isset($_GET['search_customer']) ? trim($_GET['search_customer']) : '';
     
     // Get only ongoing orders (pending and in_progress) with optional search
     $sql = "
@@ -33,9 +33,9 @@ try {
     
     $params = [$_SESSION['user_id']];
     
-    if (!empty($search_ticket)) {
-        $sql .= " AND jo.job_order_number LIKE ?";
-        $params[] = '%' . $search_ticket . '%';
+    if (!empty($search_customer)) {
+        $sql .= " AND jo.customer_name LIKE ?";
+        $params[] = '%' . $search_customer . '%';
     }
     
     $sql .= " ORDER BY 
@@ -122,15 +122,15 @@ require_once 'includes/header.php';
                     <div class="card-body">
                         <form method="GET" class="row g-3">
                             <div class="col-md-4">
-                                <label for="search_ticket" class="form-label">Search by Ticket Number</label>
-                                <input type="text" class="form-control" id="search_ticket" name="search_ticket" 
-                                       value="<?= htmlspecialchars($search_ticket) ?>" placeholder="Enter ticket number...">
+                                <label for="search_customer" class="form-label">Search by Customer Name</label>
+                                <input type="text" class="form-control" id="search_customer" name="search_customer" 
+                                       value="<?= htmlspecialchars($search_customer) ?>" placeholder="Enter customer name...">
                             </div>
                             <div class="col-md-8 d-flex align-items-end">
                                 <button type="submit" class="btn btn-primary me-2">
                                     <i class="fas fa-search me-1"></i>Search
                                 </button>
-                                <?php if (!empty($search_ticket)): ?>
+                                <?php if (!empty($search_customer)): ?>
                                     <a href="orders.php" class="btn btn-outline-secondary">
                                         <i class="fas fa-times me-1"></i>Clear Filter
                                     </a>
@@ -150,13 +150,12 @@ require_once 'includes/header.php';
                                     <table class="table table-hover align-middle mb-0">
                                 <thead class="table-light">
                                     <tr>
-                                        <th>Order #</th>
+                                        <th>Ticket Number</th>
                                         <th>Customer</th>
                                         <th>Service Type</th>
                                         <th>Model</th>
                                         <th>Price</th>
                                         <th>Status</th>
-                                        <th>Due Date</th>
                                         <th class="text-center">Actions</th>
                                     </tr>
                                     </thead>
@@ -185,7 +184,6 @@ require_once 'includes/header.php';
                                                         <?= ucfirst($order['status']) ?>
                                                     </span>
                                                 </td>
-                                                <td><?= date('M d, Y', strtotime($order['created_at'])) ?></td>
                                                 <td>
                                                     <div class="d-flex justify-content-center gap-2">
                                                         <button 

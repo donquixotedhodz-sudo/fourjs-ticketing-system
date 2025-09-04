@@ -71,6 +71,10 @@ try {
     $stmt = $pdo->query("SELECT id, service_name, service_description, service_type, base_price, aircon_type FROM cleaning_services ORDER BY service_name");
     $cleaningServices = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // Get all customers for dropdown
+    $stmt = $pdo->query("SELECT id, name FROM customers ORDER BY name ASC");
+    $allCustomers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
     // Get all customers with their active order count (excluding completed and cancelled)
     $sql = "
         SELECT 
@@ -84,8 +88,8 @@ try {
     ";
     $params = [];
     if (!empty($search_customer)) {
-        $sql .= " WHERE c.name LIKE ? ";
-        $params[] = '%' . $search_customer . '%';
+        $sql .= " WHERE c.id = ? ";
+        $params[] = $search_customer;
     }
     $sql .= " GROUP BY c.id, c.name, c.phone, c.address
         ORDER BY c.name ASC
@@ -164,12 +168,19 @@ require_once 'includes/header.php';
             <!-- Search and Filter Form -->
             <form method="GET" action="" class="row g-3">
                 <div class="col-md-4">
-                    <label for="search_customer" class="form-label">Search Customer</label>
-                    <input type="text" class="form-control" id="search_customer" name="search_customer" value="<?= htmlspecialchars($search_customer) ?>" placeholder="Enter customer name">
+                    <label for="search_customer" class="form-label">Select Customer</label>
+                    <select class="form-select" id="search_customer" name="search_customer">
+                        <option value="">All Customers</option>
+                        <?php foreach ($allCustomers as $customer): ?>
+                        <option value="<?= $customer['id'] ?>" <?= $search_customer == $customer['id'] ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($customer['name']) ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 <div class="col-md-1 d-flex align-items-end">
                     <button type="submit" class="btn btn-primary w-100">
-                        <i class="fas fa-search"></i>
+                        <i class="fas fa-filter"></i>
                     </button>
                 </div>
                 <div class="col-md-2 d-flex align-items-end">
