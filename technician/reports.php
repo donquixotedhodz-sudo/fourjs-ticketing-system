@@ -71,7 +71,14 @@ $count_stmt = $pdo->prepare($count_sql);
 $count_stmt->execute($params);
 $total = $count_stmt->fetchColumn();
 
-// Get job orders (including cancelled)
+// Pagination
+$records_per_page = 10;
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = max(1, $page); // Ensure page is at least 1
+$offset = ($page - 1) * $records_per_page;
+$total_pages = ceil($total / $records_per_page);
+
+// Get job orders (including cancelled) with pagination
 $sql = "SELECT job_orders.*, 
                aircon_models.brand, 
                aircon_models.model_name,
@@ -82,7 +89,8 @@ $sql = "SELECT job_orders.*,
         LEFT JOIN aircon_models ON job_orders.aircon_model_id = aircon_models.id 
         LEFT JOIN ac_parts ON job_orders.part_id = ac_parts.id
         WHERE $where 
-        ORDER BY job_orders.created_at DESC";
+        ORDER BY job_orders.created_at DESC
+        LIMIT $records_per_page OFFSET $offset";
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -154,21 +162,29 @@ require_once 'includes/header.php';
             
             <div class="container mt-4">
             <!-- Print Header (hidden by default, shown only when printing) -->
-            <div class="print-header" style="display: none;">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <img src="../images/logo.png" alt="Company Logo" style="height: 60px; width: auto;">
-                    </div>
-                    <div class="text-end">
-                        <div style="font-size: 14px; font-weight: bold; color: #2c3e50;">Job Orders Report</div>
-                        <div style="font-size: 12px; color: #7f8c8d;">Technician: <?= htmlspecialchars($technician['name'] ?: 'Technician') ?></div>
-                        <div style="font-size: 12px; color: #7f8c8d;">Date Generated: <?= date('F j, Y \a\t g:i A') ?></div>
-                    </div>
+            <div class="print-header-custom" style="display: none;">
+                <img src="../images/logo.png" alt="Company Logo" class="print-logo">
+                <div class="print-admin-info">
+                    <div><strong>Technician:</strong> <?= htmlspecialchars($technician['name'] ?: 'Technician') ?></div>
+                    <div><strong>Date:</strong> <?= date('F j, Y \a\t g:i A') ?></div>
                 </div>
             </div>
             
             <!-- Report Title -->
-            <div class="print-report-title" style="display: none;">Job Orders Report</div>
+            <div class="print-report-title" style="display: none;">
+                Job Orders Report
+                <div style="font-size: 12px; font-weight: normal; margin-top: 0px; margin-bottom: 0px; color: #666;">
+                    All your assigned job orders including cancelled, with filters and pagination.
+                </div>
+                <?php if ($filter_type && $filter_value): ?>
+                    <div style="font-size: 12px; font-weight: normal; margin-top: 0px; margin-bottom: 0px; color: #666;">
+                        Filter: <?= htmlspecialchars(ucfirst($filter_type) . ': ' . $filter_display_value) ?>
+                        <?php if ($filter_type == 'date' && $filter_value == 'custom' && $custom_from && $custom_to): ?>
+                            (<?= htmlspecialchars($custom_from) ?> to <?= htmlspecialchars($custom_to) ?>)
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
 
             <!-- Header -->
             <div class="d-flex justify-content-between align-items-center mb-4">
@@ -224,7 +240,7 @@ require_once 'includes/header.php';
             </div>
 
             <!-- Filter Info -->
-            <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-1">
                 <div>
                     <?php if ($filter_type && $filter_value): ?>
                         <small class="text-muted">
@@ -238,7 +254,7 @@ require_once 'includes/header.php';
             </div>
 
             <!-- Summary Cards -->
-            <div class="row mb-4">
+            <div class="row mb-1">
                 <div class="col-md-6">
                     <div class="card bg-primary text-white">
                         <div class="card-body">
@@ -403,10 +419,6 @@ require_once 'includes/header.php';
                             <span style="font-weight: 600;">Survey Orders:</span>
                             <span style="font-weight: bold; color: #17a2b8;"><?= count(array_filter($orders, function($order) { return $order['service_type'] == 'survey'; })) ?></span>
                         </div>
-                        <div class="d-flex justify-content-between">
-                            <span style="font-weight: 600;">Filter Applied:</span>
-                            <span style="font-weight: bold; color: #e74c3c; font-size: 1.1em;"><?= htmlspecialchars($filter_type ?: 'All') ?></span>
-                        </div>
                                         <?php if ($filter_type == 'date' && $filter_value == 'custom'): ?>
                                         <div class="d-flex justify-content-between mt-2">
                                             <span style="font-weight: 600;">Date Range:</span>
@@ -420,6 +432,65 @@ require_once 'includes/header.php';
                     </div>
                 </div>
             </div>
+            
+            <!-- Pagination -->
+            <?php if ($total_pages > 1): ?>
+            <div class="d-flex justify-content-between align-items-center mt-4">
+                <div>
+                    <small class="text-muted">
+                        Showing <?= ($offset + 1) ?> to <?= min($offset + $records_per_page, $total) ?> of <?= $total ?> entries
+                    </small>
+                </div>
+                <nav aria-label="Job orders pagination">
+                    <ul class="pagination pagination-sm mb-0">
+                        <?php if ($page > 1): ?>
+                            <li class="page-item">
+                                <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $page - 1])) ?>">
+                                    <i class="fas fa-chevron-left"></i> Previous
+                                </a>
+                            </li>
+                        <?php endif; ?>
+                        
+                        <?php
+                        $start_page = max(1, $page - 2);
+                        $end_page = min($total_pages, $page + 2);
+                        
+                        if ($start_page > 1): ?>
+                            <li class="page-item">
+                                <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => 1])) ?>">1</a>
+                            </li>
+                            <?php if ($start_page > 2): ?>
+                                <li class="page-item disabled"><span class="page-link">...</span></li>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                        
+                        <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
+                            <li class="page-item <?= $i == $page ? 'active' : '' ?>">
+                                <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $i])) ?>"><?= $i ?></a>
+                            </li>
+                        <?php endfor; ?>
+                        
+                        <?php if ($end_page < $total_pages): ?>
+                            <?php if ($end_page < $total_pages - 1): ?>
+                                <li class="page-item disabled"><span class="page-link">...</span></li>
+                            <?php endif; ?>
+                            <li class="page-item">
+                                <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $total_pages])) ?>"><?= $total_pages ?></a>
+                            </li>
+                        <?php endif; ?>
+                        
+                        <?php if ($page < $total_pages): ?>
+                            <li class="page-item">
+                                <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $page + 1])) ?>">
+                                    Next <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        <?php endif; ?>
+                    </ul>
+                </nav>
+            </div>
+            <?php endif; ?>
+            
             </div>
         </div>
 </div>
@@ -447,13 +518,14 @@ function printJobOrdersReport() {
 
 /* Table font size for print */
 @media print {
-    /* Hide screen elements */
-    .navbar, .sidebar, #sidebar, .wrapper > #sidebar, .btn, .card-header, .modal, .d-flex.gap-2, .pagination, form, .dropdown, #sidebarCollapse, #content nav,
-    .row.mb-4, /* This hides the summary cards row */
-    .card.text-bg-primary, .card.text-bg-info, .card.text-bg-success /* Extra safety for summary cards */
-    {
-        display: none !important;
-    }
+     /* Hide screen elements */
+            .navbar, .sidebar, #sidebar, .wrapper > #sidebar, .btn, .card-header, .modal, .d-flex.gap-2, .pagination, form, .dropdown, #sidebarCollapse, #content nav,
+            .row.mb-4, /* This hides the summary cards row */
+            .card.text-bg-primary, .card.text-bg-info, .card.text-bg-success, .card.bg-primary, .card.bg-success, .card.bg-info, /* Extra safety for summary cards */
+            .d-flex.justify-content-between.align-items-center.mt-4 /* Hide pagination controls */
+            {
+                display: none !important;
+            }
     
     /* Hide wrapper sidebar structure */
     .wrapper {
@@ -506,21 +578,25 @@ function printJobOrdersReport() {
     }
     
     /* Show print header */
-    .print-header {
-        display: block !important;
-        margin-bottom: 30px !important;
-        padding-bottom: 20px !important;
-        page-break-after: avoid !important;
+    .print-header-custom {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 15px 0 !important;
+        margin-bottom: 20px !important;
     }
     
-    .print-header img {
+    .print-logo {
         display: block !important;
-        max-height: 60px !important;
+        max-height: 80px !important;
         width: auto !important;
+        margin-top: 0 !important;
     }
     
-    .print-header .text-end {
+    .print-admin-info {
         text-align: right !important;
+        font-size: 10px !important;
+        line-height: 1.3 !important;
     }
     
     /* Job Orders Report title on left */
@@ -529,8 +605,19 @@ function printJobOrdersReport() {
         font-size: 16px !important;
         font-weight: bold !important;
         color: #2c3e50 !important;
-        margin-bottom: 15px !important;
+        margin-bottom: 0px !important;
         text-align: left !important;
+    }
+    
+    /* Filter information styling */
+    .print-report-title div {
+        margin-top: 0px !important;
+        margin-bottom: 0px !important;
+    }
+    
+    /* Reduce space before table */
+    .table-responsive {
+        margin-top: 0px !important;
     }
 
     /* Table styling for clean print */

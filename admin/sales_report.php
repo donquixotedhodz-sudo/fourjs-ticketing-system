@@ -38,6 +38,13 @@ switch ($filter_type) {
         }
         break;
         
+    case 'service_type':
+        if (!empty($filter_value)) {
+            $where .= " AND job_orders.service_type = ?";
+            $params[] = $filter_value;
+        }
+        break;
+        
     case 'technician':
         if (!empty($filter_value)) {
             $where .= " AND job_orders.assigned_technician_id = ?";
@@ -162,14 +169,6 @@ require_once 'includes/header.php';
     <!-- Report Title for Print -->
     <div class="print-report-title" style="display: none;">
         Sales Report
-        <?php if ($filter_type): ?>
-            <div style="font-size: 12px; font-weight: normal; margin-top: 5px; color: #666;">
-                Filter: <?= htmlspecialchars(ucfirst($filter_type) . ': ' . $filter_display_value) ?>
-                <?php if ($filter_type == 'date' && $filter_value == 'custom'): ?>
-                    (<?= htmlspecialchars($custom_from) ?> to <?= htmlspecialchars($custom_to) ?>)
-                <?php endif; ?>
-            </div>
-        <?php endif; ?>
     </div>
     
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -190,6 +189,7 @@ require_once 'includes/header.php';
                     <select name="filter_type" id="filter_type" class="form-select" onchange="handleFilterTypeChange()">
                         <option value="">Select Filter Type</option>
                         <option value="customer" <?= $filter_type=='customer'?'selected':'' ?>>Customer</option>
+                        <option value="service_type" <?= $filter_type=='service_type'?'selected':'' ?>>Service Type</option>
                         <option value="technician" <?= $filter_type=='technician'?'selected':'' ?>>Technician</option>
                         <option value="date" <?= $filter_type=='date'?'selected':'' ?>>Date</option>
                     </select>
@@ -559,6 +559,11 @@ function printSalesReport() {
     .text-muted {
         color: #999 !important;
     }
+    
+    /* Hide filter information card during printing */
+    .text-bg-success {
+        display: none !important;
+    }
 }
 </style>
 
@@ -594,12 +599,12 @@ function handleFilterTypeChange() {
     
     filterValue.disabled = false;
     
-    if (filterType === 'customer' || filterType === 'technician') {
+    if (filterType === 'customer' || filterType === 'service_type' || filterType === 'technician') {
         // Fetch options from server
         fetch(`controller/get_filter_options.php?filter_type=${filterType}`)
             .then(response => response.json())
             .then(data => {
-                filterValue.innerHTML = '<option value="">Select ' + filterType + '</option>';
+                filterValue.innerHTML = '<option value="">Select ' + filterType.replace('_', ' ') + '</option>';
                 
                 if (data.options && data.options.length > 0) {
                     if (filterType === 'technician') {

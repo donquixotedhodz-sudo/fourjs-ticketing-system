@@ -40,10 +40,14 @@ try {
             jo.*,
             COALESCE(am.model_name, 'Not Specified') as model_name,
             COALESCE(am.brand, 'Not Specified') as brand,
-            t.name as technician_name
+            t.name as technician_name,
+            t.profile_picture as technician_profile,
+            t2.name as secondary_technician_name,
+            t2.profile_picture as secondary_technician_profile
         FROM job_orders jo 
         LEFT JOIN aircon_models am ON jo.aircon_model_id = am.id 
         LEFT JOIN technicians t ON jo.assigned_technician_id = t.id
+        LEFT JOIN technicians t2 ON jo.secondary_technician_id = t2.id
         $where_clause
         AND jo.status NOT IN ('completed', 'cancelled')
         ORDER BY jo.created_at DESC
@@ -151,43 +155,53 @@ try {
                 </div>
             </div>
             
-            <!-- Search Form -->
-            <div class="mb-3">
-                <div class="row align-items-center">
-                    <div class="col-md-4">
-                        <label class="form-label mb-2">Search Ticket</label>
-                        <form method="GET" action="" class="d-flex">
-                            <input type="hidden" name="customer_id" value="<?= $customer_id ?>">
-                            <div class="input-group">
-                                <input type="text" 
-                                       class="form-control" 
-                                       name="search_ticket" 
-                                       placeholder="Enter ticket number" 
-                                       value="<?= htmlspecialchars($search_ticket) ?>">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-search"></i>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                    <?php if (!empty($search_ticket)): ?>
-                    <div class="col-md-4">
-                        <div class="mt-4">
-                            <span class="text-muted">Showing results for: <strong><?= htmlspecialchars($search_ticket) ?></strong></span>
-                            <a href="?customer_id=<?= $customer_id ?>" class="btn btn-sm btn-outline-secondary ms-2">Clear</a>
-                        </div>
-                    </div>
-                    <?php endif; ?>
-                </div>
-            </div>
             <?php if (!$orders): ?>
                 <div class="alert alert-info">No orders found for this customer.</div>
             <?php else: ?>
+                <!-- Search and Bulk Actions -->
+                <div class="mb-3">
+                    <div class="row align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label mb-2">Search Ticket</label>
+                            <form method="GET" action="" class="d-flex">
+                                <input type="hidden" name="customer_id" value="<?= $customer_id ?>">
+                                <div class="input-group">
+                                    <input type="text" 
+                                           class="form-control" 
+                                           name="search_ticket" 
+                                           placeholder="Enter ticket number" 
+                                           value="<?= htmlspecialchars($search_ticket) ?>">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-search"></i>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="col-md-4">
+                            <?php if (!empty($search_ticket)): ?>
+                            <div class="text-center">
+                                <span class="text-muted">Showing results for: <strong><?= htmlspecialchars($search_ticket) ?></strong></span>
+                                <a href="?customer_id=<?= $customer_id ?>" class="btn btn-sm btn-outline-secondary ms-2">Clear</a>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex justify-content-end">
+                                <button type="button" class="btn btn-info" id="bulkPrintBtn" onclick="printSelectedOrders()" disabled>
+                                    <i class="fas fa-print me-2"></i>Print Selected Orders
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="table-wrapper" style="max-height: 500px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem;">
                     <div class="table-responsive">
                         <table class="table table-hover align-middle">
                             <thead class="table-light">
                                 <tr>
+                                    <th width="40">
+                                        <input type="checkbox" class="form-check-input" id="selectAllHeader">
+                                    </th>
                                     <th>Ticket Number</th>
                                     <th>Service Type</th>
                                     <th>Model</th>
@@ -201,6 +215,9 @@ try {
                                 <?php foreach ($orders as $order): ?>
                                 <tr>
                                     <td>
+                                        <input type="checkbox" class="form-check-input order-checkbox" value="<?= $order['id'] ?>">
+                                    </td>
+                                    <td>
                                         <span class="fw-semibold"><?= htmlspecialchars($order['job_order_number']) ?></span>
                                     </td>
                                     <td>
@@ -212,28 +229,37 @@ try {
                                     <td>
                                         <?php if (!empty($order['assigned_technician_id'])): ?>
                                             <?php
-                                            // Fetch technician name and profile if not already available
-                                            $techName = '';
-                                            $techProfile = '';
-                                            if (!isset($order['technician_name']) || !isset($order['technician_profile'])) {
-                                                $stmt = $pdo->prepare("SELECT name, profile_picture FROM technicians WHERE id = ?");
-                                                $stmt->execute([$order['assigned_technician_id']]);
-                                                $tech = $stmt->fetch(PDO::FETCH_ASSOC);
-                                                $techName = $tech['name'] ?? '';
-                                                $techProfile = $tech['profile_picture'] ?? '';
-                                            } else {
-                                                $techName = $order['technician_name'];
-                                                $techProfile = $order['technician_profile'];
-                                            }
+                                            $techName = $order['technician_name'] ?? '';
+                                            $techProfile = $order['technician_profile'] ?? '';
                                             ?>
-                                            <div class="d-flex align-items-center">
+                                            <div class="d-flex align-items-center mb-1">
                                                 <img src="<?= !empty($techProfile) ? '../' . htmlspecialchars($techProfile) : 'https://ui-avatars.com/api/?name=' . urlencode($techName) . '&background=1a237e&color=fff' ?>" 
                                                      alt="<?= htmlspecialchars($techName) ?>" 
                                                      class="rounded-circle me-2" 
                                                      width="24" height="24"
                                                      style="object-fit: cover;">
-                                                <?= htmlspecialchars($techName) ?>
+                                                <div>
+                                                    <div class="fw-medium"><?= htmlspecialchars($techName) ?></div>
+                                                    <small class="text-muted">Primary</small>
+                                                </div>
                                             </div>
+                                            <?php if (!empty($order['secondary_technician_id']) && !empty($order['secondary_technician_name'])): ?>
+                                                <?php
+                                                $secondaryTechName = $order['secondary_technician_name'];
+                                                $secondaryTechProfile = $order['secondary_technician_profile'] ?? '';
+                                                ?>
+                                                <div class="d-flex align-items-center">
+                                                    <img src="<?= !empty($secondaryTechProfile) ? '../' . htmlspecialchars($secondaryTechProfile) : 'https://ui-avatars.com/api/?name=' . urlencode($secondaryTechName) . '&background=28a745&color=fff' ?>" 
+                                                         alt="<?= htmlspecialchars($secondaryTechName) ?>" 
+                                                         class="rounded-circle me-2" 
+                                                         width="24" height="24"
+                                                         style="object-fit: cover;">
+                                                    <div>
+                                                        <div class="fw-medium"><?= htmlspecialchars($secondaryTechName) ?></div>
+                                                        <small class="text-muted">Secondary</small>
+                                                    </div>
+                                                </div>
+                                            <?php endif; ?>
                                         <?php else: ?>
                                             <span class="text-muted">Not Assigned</span>
                                         <?php endif; ?>
@@ -255,6 +281,12 @@ try {
                                                 data-order-id="<?= $order['id'] ?>"
                                                 title="View Details">
                                                 <i class="fas fa-eye text-primary"></i>
+                                            </button>
+                                            <button 
+                                                class="btn btn-sm btn-info print-order-btn" 
+                                                onclick="printOrder(<?= $order['id'] ?>)"
+                                                title="Print Receipt">
+                                                <i class="fas fa-print text-white"></i>
                                             </button>
                                             <?php if ($order['status'] === 'pending'): ?>
                                             <a href="controller/update-status.php?status=in_progress&id=<?= $order['id'] ?>&customer_id=<?= $customer['id'] ?>" class="btn btn-sm btn-success" data-bs-toggle="tooltip" title="Accept Order">
@@ -378,6 +410,15 @@ try {
                                 <?php endforeach; ?>
                             </select>
                         </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Secondary Technician <span class="text-muted">(Optional)</span></label>
+                            <select class="form-select" name="secondary_technician_id">
+                                <option value="">Select Secondary Technician</option>
+                                <?php foreach ($technicians as $tech): ?>
+                                <option value="<?= $tech['id'] ?>"><?= htmlspecialchars($tech['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
                         <!-- Removed Due Date field here -->
 
                         <!-- Orders Container -->
@@ -490,6 +531,15 @@ try {
                             <label class="form-label">Assign Technician <span class="text-danger">*</span></label>
                             <select class="form-select" name="assigned_technician_id" required>
                                 <option value="">Select Technician</option>
+                                <?php foreach ($technicians as $tech): ?>
+                                <option value="<?= $tech['id'] ?>"><?= htmlspecialchars($tech['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Secondary Technician <span class="text-muted">(Optional)</span></label>
+                            <select class="form-select" name="secondary_technician_id">
+                                <option value="">Select Secondary Technician</option>
                                 <?php foreach ($technicians as $tech): ?>
                                 <option value="<?= $tech['id'] ?>"><?= htmlspecialchars($tech['name']) ?></option>
                                 <?php endforeach; ?>
@@ -622,9 +672,18 @@ try {
                         </div>
                         <!-- Assignment Information -->
                         <div class="col-md-6">
-                            <label class="form-label">Assign Technician</label>
-                            <select class="form-select" name="assigned_technician_id">
+                            <label class="form-label">Assign Technician <span class="text-danger">*</span></label>
+                            <select class="form-select" name="assigned_technician_id" required>
                                 <option value="">Select Technician</option>
+                                <?php foreach ($technicians as $tech): ?>
+                                <option value="<?= $tech['id'] ?>"><?= htmlspecialchars($tech['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Secondary Technician <span class="text-muted">(Optional)</span></label>
+                            <select class="form-select" name="secondary_technician_id">
+                                <option value="">Select Secondary Technician</option>
                                 <?php foreach ($technicians as $tech): ?>
                                 <option value="<?= $tech['id'] ?>"><?= htmlspecialchars($tech['name']) ?></option>
                                 <?php endforeach; ?>
@@ -696,9 +755,18 @@ try {
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Assign Technician</label>
-                            <select class="form-select" name="assigned_technician_id" id="edit_assigned_technician_id">
+                            <label class="form-label">Assign Technician <span class="text-danger">*</span></label>
+                            <select class="form-select" name="assigned_technician_id" id="edit_assigned_technician_id" required>
                                 <option value="">Select Technician</option>
+                                <?php foreach ($technicians as $tech): ?>
+                                <option value="<?= $tech['id'] ?>"><?= htmlspecialchars($tech['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Secondary Technician <span class="text-muted">(Optional)</span></label>
+                            <select class="form-select" name="secondary_technician_id" id="edit_secondary_technician_id">
+                                <option value="">Select Secondary Technician</option>
                                 <?php foreach ($technicians as $tech): ?>
                                 <option value="<?= $tech['id'] ?>"><?= htmlspecialchars($tech['name']) ?></option>
                                 <?php endforeach; ?>
@@ -1536,6 +1604,391 @@ document.addEventListener('DOMContentLoaded', function() {
         const serviceType = document.getElementById('edit_service_type').value;
         if (serviceType) {
             updateAirconModelLabel(serviceType.toLowerCase(), 'edit_modal_aircon_model_label', 'edit_aircon_model_id');
+        }
+    });
+});
+
+// Print Order Function
+function printOrder(orderId) {
+    // Open a new window for printing
+    const printWindow = window.open('', '_blank', 'width=600,height=800');
+    
+    // Fetch order details via AJAX
+    fetch(`controller/get_order_details.php?id=${orderId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                throw new Error(data.message || 'Failed to load order details');
+            }
+            const order = data.order;
+            const printContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Order Receipt - ${order.id}</title>
+                    <style>
+                        @page {
+                            size: A5;
+                            margin: 10mm;
+                        }
+                        body {
+                            font-family: Arial, sans-serif;
+                            font-size: 12px;
+                            line-height: 1.4;
+                            margin: 0;
+                            padding: 0;
+                        }
+                        .header {
+                            text-align: center;
+                            border-bottom: 2px solid #333;
+                            padding-bottom: 10px;
+                            margin-bottom: 15px;
+                        }
+                        .company-name {
+                            font-size: 18px;
+                            font-weight: bold;
+                            margin-bottom: 5px;
+                        }
+                        .receipt-title {
+                            font-size: 14px;
+                            font-weight: bold;
+                            margin-top: 10px;
+                        }
+                        .order-info {
+                            margin-bottom: 15px;
+                        }
+                        .info-row {
+                            display: flex;
+                            justify-content: space-between;
+                            margin-bottom: 5px;
+                        }
+                        .label {
+                            font-weight: bold;
+                        }
+                        .customer-section {
+                            border-top: 1px solid #ddd;
+                            padding-top: 10px;
+                            margin-bottom: 15px;
+                        }
+                        .service-section {
+                            border-top: 1px solid #ddd;
+                            padding-top: 10px;
+                            margin-bottom: 15px;
+                        }
+                        .total-section {
+                            border-top: 2px solid #333;
+                            padding-top: 10px;
+                            font-weight: bold;
+                            font-size: 14px;
+                        }
+                        .footer {
+                            text-align: center;
+                            margin-top: 20px;
+                            font-size: 10px;
+                            color: #666;
+                        }
+                        @media print {
+                            body { print-color-adjust: exact; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                         <div style="display: flex; align-items: center; margin-bottom: 10px; padding-left: 20px;">
+                             <img src="images/logo.png" alt="FourJs Logo" style="height: 80px; width: auto; margin-right: 15px;">
+                             <div style="flex: 1; text-align: center; margin-right: 95px;">
+                                 <div class="company-name">FourJs Aircon Services</div>
+                                 <div>Professional Aircon Installation & Repair</div>
+                                 <div class="receipt-title" style="margin-top: 5px; font-size: 18px; font-weight: bold;">SERVICE ORDER RECEIPT</div>
+                             </div>
+                         </div>
+                     </div>
+                    
+                    <div class="order-info">
+                        <div class="info-row">
+                             <span class="label">Ticket Number:</span>
+                             <span>${order.job_order_number || '#' + order.id}</span>
+                         </div>
+                        <div class="info-row">
+                            <span class="label">Date:</span>
+                            <span>${new Date(order.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Status:</span>
+                            <span>${order.status.charAt(0).toUpperCase() + order.status.slice(1).replace('_', ' ')}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="customer-section">
+                         <div class="label" style="margin-bottom: 8px;">Customer Information:</div>
+                         <div class="info-row">
+                             <span class="label">Name:</span>
+                             <span>${order.customer_name || 'N/A'}</span>
+                         </div>
+                         <div class="info-row">
+                             <span class="label">Phone:</span>
+                             <span>${order.customer_phone || 'N/A'}</span>
+                         </div>
+                         <div class="info-row">
+                             <span class="label">Address:</span>
+                             <span>${order.customer_address || 'N/A'}</span>
+                         </div>
+                     </div>
+                    
+                    <div class="service-section">
+                        <div class="label" style="margin-bottom: 8px;">Service Details:</div>
+                        <div class="info-row">
+                            <span class="label">Service Type:</span>
+                            <span>${order.service_type.charAt(0).toUpperCase() + order.service_type.slice(1)}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Model/Part:</span>
+                            <span>${order.model_name || 'Not Specified'}</span>
+                        </div>
+                        ${order.technician_name ? `
+                        <div class="info-row">
+                            <span class="label">Technician:</span>
+                            <span>${order.technician_name}</span>
+                        </div>
+                        ` : ''}
+                        ${order.description ? `
+                        <div class="info-row">
+                            <span class="label">Description:</span>
+                            <span>${order.description}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    <div class="total-section">
+                        <div class="info-row">
+                            <span>Total Amount:</span>
+                            <span>₱${parseFloat(order.price).toFixed(2)}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="footer">
+                        <p>Thank you for choosing FourJs Aircon Services!</p>
+                        <p>For inquiries, please contact us.</p>
+                    </div>
+                </body>
+                </html>
+            `;
+            
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            
+            // Wait for content to load then print
+            printWindow.onload = function() {
+                printWindow.print();
+                printWindow.close();
+            };
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error loading order details for printing. Please try again.');
+            printWindow.close();
+        });
+}
+
+// Bulk Print Functions
+function updateSelectedCount() {
+    const checkboxes = document.querySelectorAll('.order-checkbox:checked');
+    const count = checkboxes.length;
+    document.getElementById('bulkPrintBtn').disabled = count === 0;
+}
+
+function printSelectedOrders() {
+    const checkboxes = document.querySelectorAll('.order-checkbox:checked');
+    const orderIds = Array.from(checkboxes).map(cb => cb.value);
+    
+    if (orderIds.length === 0) {
+        alert('Please select at least one order to print.');
+        return;
+    }
+    
+    // Open a new window for printing
+    const printWindow = window.open('', '_blank', 'width=800,height=1000');
+    
+    // Fetch all selected order details
+    Promise.all(orderIds.map(id => 
+        fetch(`controller/get_order_details.php?id=${id}`)
+            .then(response => response.json())
+    ))
+    .then(responses => {
+        const orders = responses.filter(data => data.success).map(data => data.order);
+        
+        if (orders.length === 0) {
+            throw new Error('No valid orders found');
+        }
+        
+        // Calculate total amount
+        const totalAmount = orders.reduce((sum, order) => sum + parseFloat(order.price), 0);
+        
+        const printContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Bulk Order Receipt</title>
+                <style>
+                    @page {
+                        size: A4;
+                        margin: 15mm;
+                    }
+                    body {
+                        font-family: Arial, sans-serif;
+                        font-size: 12px;
+                        line-height: 1.4;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    .header {
+                        text-align: center;
+                        border-bottom: 2px solid #333;
+                        padding-bottom: 15px;
+                        margin-bottom: 20px;
+                    }
+                    .company-name {
+                        font-size: 20px;
+                        font-weight: bold;
+                        margin-bottom: 5px;
+                    }
+                    .receipt-title {
+                        font-size: 16px;
+                        font-weight: bold;
+                        margin-top: 10px;
+                    }
+                    .order-item {
+                        border: 1px solid #ddd;
+                        margin-bottom: 15px;
+                        padding: 15px;
+                        page-break-inside: avoid;
+                    }
+                    .order-header {
+                        background-color: #f8f9fa;
+                        padding: 8px;
+                        margin: -15px -15px 10px -15px;
+                        font-weight: bold;
+                        border-bottom: 1px solid #ddd;
+                    }
+                    .info-row {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 5px;
+                    }
+                    .label {
+                        font-weight: bold;
+                        min-width: 120px;
+                    }
+                    .total-section {
+                        border-top: 2px solid #333;
+                        padding-top: 15px;
+                        margin-top: 20px;
+                        font-weight: bold;
+                        font-size: 16px;
+                        text-align: right;
+                    }
+                    .footer {
+                        text-align: center;
+                        margin-top: 30px;
+                        font-size: 10px;
+                        color: #666;
+                    }
+                    @media print {
+                        body { print-color-adjust: exact; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                     <div style="display: flex; align-items: center; margin-bottom: 10px; padding-left: 20px;">
+                          <img src="images/logo.png" alt="FourJs Logo" style="height: 80px; width: auto; margin-right: 15px;">
+                         <div style="flex: 1; text-align: center; margin-right: 95px;">
+                             <div class="company-name">FourJs Aircon Services</div>
+                             <div>Professional Aircon Installation & Repair</div>
+                             <div class="receipt-title" style="margin-top: 5px; font-size: 18px; font-weight: bold;">BULK ORDER RECEIPT</div>
+                         </div>
+                     </div>
+                 </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <div class="info-row">
+                        <span class="label">Customer:</span>
+                        <span>${orders[0].customer_name}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Date:</span>
+                        <span>${new Date().toLocaleDateString()}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Total Orders:</span>
+                        <span>${orders.length}</span>
+                    </div>
+                </div>
+                
+                ${orders.map((order, index) => `
+                    <div class="order-item">
+                        <div class="order-header">
+                            Order ${index + 1} - Ticket: ${order.job_order_number || '#' + order.id}
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Service Type:</span>
+                            <span>${order.service_type.charAt(0).toUpperCase() + order.service_type.slice(1)}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Model/Part:</span>
+                            <span>${order.model_name || 'Not Specified'}</span>
+                        </div>
+                        ${order.technician_name ? `
+                        <div class="info-row">
+                            <span class="label">Technician:</span>
+                            <span>${order.technician_name}</span>
+                        </div>
+                        ` : ''}
+                        <div class="info-row">
+                            <span class="label">Status:</span>
+                            <span>${order.status.charAt(0).toUpperCase() + order.status.slice(1).replace('_', ' ')}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Amount:</span>
+                            <span>₱${parseFloat(order.price).toFixed(2)}</span>
+                        </div>
+                    </div>
+                `).join('')}
+                
+                <div class="total-section">
+                    <div>Total Amount: ₱${totalAmount.toFixed(2)}</div>
+                </div>
+                
+                <div class="footer">
+                    <p>Thank you for choosing FourJs Aircon Services!</p>
+                    <p>For inquiries, please contact us.</p>
+                </div>
+            </body>
+            </html>
+        `;
+        
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        
+        // Wait for content to load then print
+        printWindow.onload = function() {
+            printWindow.print();
+            printWindow.close();
+        };
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error loading order details for printing. Please try again.');
+        printWindow.close();
+    });
+}
+
+// Event listeners for checkboxes
+document.addEventListener('DOMContentLoaded', function() {
+    // Individual checkbox change
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('order-checkbox')) {
+            updateSelectedCount();
         }
     });
 });

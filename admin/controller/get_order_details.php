@@ -24,7 +24,10 @@ try {
     $stmt = $pdo->prepare("
         SELECT 
             jo.*,
-            COALESCE(am.model_name, 'Not Specified') as model_name,
+            CASE 
+                WHEN jo.service_type = 'repair' THEN COALESCE(ap.part_name, 'Not Specified')
+                ELSE COALESCE(am.model_name, 'Not Specified')
+            END as model_name,
             COALESCE(am.brand, 'Not Specified') as brand,
             COALESCE(ap.part_name, NULL) as part_name,
             COALESCE(ap.part_code, NULL) as part_code,
@@ -33,7 +36,7 @@ try {
             t.phone as technician_phone,
             t.profile_picture as technician_profile
         FROM job_orders jo 
-        LEFT JOIN aircon_models am ON jo.aircon_model_id = am.id AND (jo.service_type = 'installation' OR jo.service_type = 'cleaning')
+        LEFT JOIN aircon_models am ON jo.aircon_model_id = am.id
         LEFT JOIN ac_parts ap ON jo.part_id = ap.id AND jo.service_type = 'repair'
         LEFT JOIN technicians t ON jo.assigned_technician_id = t.id
         WHERE jo.id = ?

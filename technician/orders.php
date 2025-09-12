@@ -21,17 +21,30 @@ try {
     $search_customer = isset($_GET['search_customer']) ? trim($_GET['search_customer']) : '';
     
     // Get only ongoing orders (pending and in_progress) with optional search
+    // Include orders where technician is primary or secondary
     $sql = "
         SELECT 
             jo.*,
-            COALESCE(am.model_name, 'Not Specified') as model_name 
+            CASE 
+                WHEN jo.service_type = 'repair' THEN COALESCE(ap.part_name, 'Not Specified')
+                ELSE COALESCE(am.model_name, 'Not Specified')
+            END as model_name,
+            t1.name as primary_technician_name,
+            t2.name as secondary_technician_name,
+            CASE 
+                WHEN jo.assigned_technician_id = ? THEN 'primary'
+                WHEN jo.secondary_technician_id = ? THEN 'secondary'
+            END as technician_role
         FROM job_orders jo 
-        LEFT JOIN aircon_models am ON jo.aircon_model_id = am.id 
-        WHERE jo.assigned_technician_id = ? 
+        LEFT JOIN aircon_models am ON jo.aircon_model_id = am.id
+        LEFT JOIN ac_parts ap ON jo.part_id = ap.id AND jo.service_type = 'repair'
+        LEFT JOIN technicians t1 ON jo.assigned_technician_id = t1.id
+        LEFT JOIN technicians t2 ON jo.secondary_technician_id = t2.id
+        WHERE (jo.assigned_technician_id = ? OR jo.secondary_technician_id = ?) 
         AND jo.status IN ('pending', 'in_progress')
         AND jo.status != 'cancelled'";
     
-    $params = [$_SESSION['user_id']];
+    $params = [$_SESSION['user_id'], $_SESSION['user_id'], $_SESSION['user_id'], $_SESSION['user_id']];
     
     if (!empty($search_customer)) {
         $sql .= " AND jo.customer_name LIKE ?";
@@ -154,6 +167,7 @@ require_once 'includes/header.php';
                                         <th>Customer</th>
                                         <th>Service Type</th>
                                         <th>Model</th>
+                                        <th>Role</th>
                                         <th>Price</th>
                                         <th>Status</th>
                                         <th class="text-center">Actions</th>
@@ -178,6 +192,11 @@ require_once 'includes/header.php';
                                             </span>
                                         </td>
                                                 <td><?= htmlspecialchars($order['model_name']) ?></td>
+                                                <td>
+                                                    <span class="badge bg-<?= $order['technician_role'] === 'primary' ? 'primary' : 'success' ?>">
+                                                        <?= ucfirst($order['technician_role']) ?>
+                                                    </span>
+                                                </td>
                                                 <td>₱<?= number_format($order['price'], 2) ?></td>
                                                 <td>
                                                     <span class="badge bg-<?= $order['status'] === 'pending' ? 'warning' : 'info' ?>">

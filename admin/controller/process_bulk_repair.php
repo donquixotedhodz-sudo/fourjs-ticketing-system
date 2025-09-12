@@ -86,11 +86,11 @@ try {
     $stmt = $pdo->prepare("
         INSERT INTO job_orders (
             job_order_number, customer_id, customer_name, customer_phone, customer_address, 
-            service_type, aircon_model_id, part_id, assigned_technician_id,
+            service_type, aircon_model_id, part_id, assigned_technician_id, secondary_technician_id,
             base_price, additional_fee, discount, price, status
         ) VALUES (
             :job_order_number, :customer_id, :customer_name, :customer_phone, :customer_address,
-            :service_type, :aircon_model_id, :part_id, :assigned_technician_id,
+            :service_type, :aircon_model_id, :part_id, :assigned_technician_id, :secondary_technician_id,
             :base_price, :additional_fee, :discount, :price, 'pending'
         )
     ");
@@ -131,6 +131,7 @@ try {
             ':aircon_model_id' => $aircon_model_id,
             ':part_id' => $part_id,
             ':assigned_technician_id' => $assigned_technician_id,
+            ':secondary_technician_id' => !empty($_POST['secondary_technician_id']) ? (int)$_POST['secondary_technician_id'] : null,
             ':base_price' => $base_price,
             ':additional_fee' => $proportional_additional_fee,
             ':discount' => $proportional_discount,

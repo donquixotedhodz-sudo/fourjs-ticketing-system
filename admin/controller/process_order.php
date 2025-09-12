@@ -24,6 +24,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // VALIDATION - Check if assigned technician is provided
         if (empty($_POST['assigned_technician_id'])) {
             $_SESSION['error'] = "Assigned technician is required for creating job orders.";
+            
+            // For survey orders, always redirect to customer_orders.php for better interface
+            if (!empty($_POST['service_type']) && $_POST['service_type'] === 'survey') {
+                // Need to get or create customer_id first for survey orders
+                $customer_name = trim($_POST['customer_name']);
+                $customer_phone = trim($_POST['customer_phone']);
+                $customer_address = trim($_POST['customer_address']);
+                
+                // Try to find existing customer by name and phone
+                $stmt = $pdo->prepare("SELECT id FROM customers WHERE name = ? AND phone = ? LIMIT 1");
+                $stmt->execute([$customer_name, $customer_phone]);
+                $customer = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($customer) {
+                    $customer_id = $customer['id'];
+                } else {
+                    // Insert new customer
+                    $stmt = $pdo->prepare("INSERT INTO customers (name, phone, address) VALUES (?, ?, ?)");
+                    $stmt->execute([$customer_name, $customer_phone, $customer_address]);
+                    $customer_id = $pdo->lastInsertId();
+                }
+                
+                header('Location: ../customer_orders.php?customer_id=' . $customer_id);
+                exit();
+            }
+            
+            // For other service types, use existing logic
             if (!empty($_POST['customer_id'])) {
                 header('Location: ../customer_orders.php?customer_id=' . (int)$_POST['customer_id']);
                 exit();
@@ -69,6 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 aircon_model_id,
                 part_id,
                 assigned_technician_id,
+                secondary_technician_id,
                 status,
                 price,
                 base_price,
@@ -85,6 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 :aircon_model_id,
                 :part_id,
                 :assigned_technician_id,
+                :secondary_technician_id,
                 :status,
                 :price,
                 :base_price,
@@ -117,6 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bindValue(':aircon_model_id', $aircon_model_id);
         $stmt->bindValue(':part_id', $part_id);
         $stmt->bindValue(':assigned_technician_id', (int)$_POST['assigned_technician_id']);
+        $stmt->bindValue(':secondary_technician_id', !empty($_POST['secondary_technician_id']) ? (int)$_POST['secondary_technician_id'] : null);
         $stmt->bindValue(':status', 'pending');
         $stmt->bindValue(':price', $_POST['price']);
         $stmt->bindValue(':base_price', $_POST['base_price'] ?? 0);
@@ -130,6 +160,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Redirect back to orders page with success message
         $_SESSION['success'] = "Job order #$job_order_number has been created successfully.";
+        
+        // For survey orders, always redirect to customer_orders.php for better interface
+        if ($service_type === 'survey') {
+            header('Location: ../customer_orders.php?customer_id=' . $customer_id);
+            exit();
+        }
+        
+        // For other service types, use existing logic
         if (!empty($_POST['customer_id'])) {
             header('Location: ../customer_orders.php?customer_id=' . (int)$_POST['customer_id']);
             exit();
@@ -139,6 +177,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } catch (PDOException $e) {
         $_SESSION['error'] = "Error creating job order: " . $e->getMessage();
+        
+        // For survey orders, always redirect to customer_orders.php for better interface
+        if (!empty($_POST['service_type']) && $_POST['service_type'] === 'survey') {
+            header('Location: ../customer_orders.php?customer_id=' . $customer_id);
+            exit();
+        }
+        
+        // For other service types, use existing logic
         if (!empty($_POST['customer_id'])) {
             header('Location: ../customer_orders.php?customer_id=' . (int)$_POST['customer_id']);
             exit();

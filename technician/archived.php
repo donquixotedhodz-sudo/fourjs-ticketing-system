@@ -18,7 +18,7 @@ try {
     $technician = $stmt->fetch(PDO::FETCH_ASSOC);
 
     // Get search parameter
-    $search_customer = $_GET['search_customer'] ?? '';
+    $search_ticket = $_GET['search_ticket'] ?? '';
 
     // Get completed and cancelled orders
     $sql = "
@@ -38,9 +38,9 @@ try {
     
     $params = [$_SESSION['user_id']];
     
-    if (!empty($search_customer)) {
-        $sql .= " AND jo.customer_name LIKE ?";
-        $params[] = '%' . $search_customer . '%';
+    if (!empty($search_ticket)) {
+        $sql .= " AND jo.job_order_number LIKE ?";
+        $params[] = '%' . $search_ticket . '%';
     }
     
     $sql .= "
@@ -160,34 +160,27 @@ try {
                     </div>
                 <?php endif; ?>
 
-                <!-- Search Form -->
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <form method="GET" class="row g-3">
-                            <div class="col-md-4">
-                                <label for="search_customer" class="form-label">Search by Customer Name</label>
-                                <input type="text" class="form-control" id="search_customer" name="search_customer" 
-                                       value="<?= htmlspecialchars($search_customer) ?>" placeholder="Enter customer name...">
-                            </div>
-                            <div class="col-md-8 d-flex align-items-end">
-                                <button type="submit" class="btn btn-primary me-2">
-                                    <i class="fas fa-search me-1"></i>Search
-                                </button>
-                                <?php if (!empty($search_customer)): ?>
-                                    <a href="archived.php" class="btn btn-outline-secondary">
-                                        <i class="fas fa-times me-1"></i>Clear Filter
-                                    </a>
-                                <?php endif; ?>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-
                 <div class="card mb-4">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h5 class="card-title mb-0">Archived Orders</h5>
                         </div>
+
+                        <!-- Search Form -->
+                        <form method="GET" action="" class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label for="search_ticket" class="form-label">Search Ticket Number</label>
+                                <input type="text" class="form-control" id="search_ticket" name="search_ticket" value="<?= htmlspecialchars($_GET['search_ticket'] ?? '') ?>" placeholder="Enter ticket number">
+                            </div>
+                            <div class="col-md-1 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <a href="archived.php" class="btn btn-outline-secondary w-100">Clear Filter</a>
+                            </div>
+                        </form>
                         
                         <?php if (empty($orders)): ?>
                             <p class="text-muted">No completed orders found.</p>

@@ -1,7 +1,7 @@
 <?php
 // Database configuration
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'job_order_system');
+define('DB_NAME', 'fourjs_db');
 define('DB_USER', 'root');
 define('DB_PASS', '');
 

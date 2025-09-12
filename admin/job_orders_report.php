@@ -92,7 +92,9 @@ $summary_sql = "SELECT
     SUM(CASE WHEN service_type = 'installation' THEN 1 ELSE 0 END) as installation_orders,
     SUM(CASE WHEN service_type = 'cleaning' THEN 1 ELSE 0 END) as cleaning_orders,
     SUM(CASE WHEN service_type = 'maintenance' THEN 1 ELSE 0 END) as maintenance_orders,
-    SUM(CASE WHEN service_type = 'survey' THEN 1 ELSE 0 END) as survey_orders
+    SUM(CASE WHEN service_type = 'survey' THEN 1 ELSE 0 END) as survey_orders,
+    COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_orders,
+    SUM(CASE WHEN status = 'completed' THEN price ELSE 0 END) as total_completed_price
     FROM job_orders WHERE $where";
 $summary_stmt = $pdo->prepare($summary_sql);
 $summary_stmt->execute($params);
@@ -185,29 +187,18 @@ require_once 'includes/header.php';
 
 <div class="container mt-4">
     <h3>Job Orders Report</h3>
-    
+
     <!-- Print Header (hidden by default, shown only when printing) -->
     <div class="print-header-custom" style="display: none;">
         <img src="images/logo.png" alt="Company Logo" class="print-logo">
         <div class="print-admin-info">
             <div><strong>Administrator:</strong> <?= htmlspecialchars($admin['name'] ?? 'Admin') ?></div>
-            <div><strong>Date:</strong> <?= date('F j, Y') ?> at <?= date('g:i A') ?></div>
+            <div><strong>Date:</strong> <?= date('F j, Y \\a\\t g:i A') ?></div>
         </div>
     </div>
     
     <!-- Report Title for Print -->
-    <div class="print-report-title" style="display: none;">
-        Job Orders Report
-        <?php if ($filter_type): ?>
-            <div style="font-size: 12px; font-weight: normal; margin-top: 5px; color: #666;">
-                Filter: <?= htmlspecialchars(ucfirst($filter_type) . ': ' . $filter_display_value) ?>
-                <?php if ($filter_type == 'date' && $filter_value == 'custom'): ?>
-                    (<?= htmlspecialchars($custom_from) ?> to <?= htmlspecialchars($custom_to) ?>)
-                <?php endif; ?>
-            </div>
-        <?php endif; ?>
-    </div>
-    
+    <div class="print-report-title" style="display: none;">Job Orders Report</div>
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <p class="text-muted mb-0">View and print all job orders with filters</p>
@@ -327,6 +318,7 @@ require_once 'includes/header.php';
                                         <th>Status</th>
                                         <th>Technician</th>
                                         <th>Created At</th>
+                                        <th>Completed At</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -420,10 +412,17 @@ require_once 'includes/header.php';
                                                 ?>
                                             </td>
                                             <td><?= htmlspecialchars($order['created_at'] ?? '') ?></td>
+                                            <td>
+                                                <?php if ($order['status'] == 'completed' && !empty($order['completed_at'])): ?>
+                                                    <?= htmlspecialchars($order['completed_at']) ?>
+                                                <?php else: ?>
+                                                    <span class="text-muted">-</span>
+                                                <?php endif; ?>
+                                            </td>
                                         </tr>
                                     <?php endforeach; ?>
                                     <?php if (empty($orders)): ?>
-                                        <tr><td colspan="11" class="text-center">No job orders found.</td></tr>
+                                        <tr><td colspan="12" class="text-center">No job orders found.</td></tr>
                                     <?php endif; ?>
                                 </tbody>
                             </table>
@@ -440,6 +439,11 @@ require_once 'includes/header.php';
                                             <span style="font-weight: bold; color: #27ae60;"><?= $summary['total_orders'] ?></span>
                                         </div>
                                         <div class="d-flex justify-content-between mb-2">
+                                            <span style="font-weight: 600;">Completed Orders:</span>
+                                            <span style="font-weight: bold; color: #28a745;"><?= $summary['completed_orders'] ?></span>
+                                        </div>
+                                      
+                                        <div class="d-flex justify-content-between mb-2">
                                             <span style="font-weight: 600;">Repair Orders:</span>
                                             <span style="font-weight: bold; color: #f39c12;"><?= $summary['repair_orders'] ?></span>
                                         </div>
@@ -451,6 +455,10 @@ require_once 'includes/header.php';
                                         <div class="d-flex justify-content-between mt-2">
                                             <span style="font-weight: 600;">Survey Orders:</span>
                                             <span style="font-weight: bold; color: #9b59b6;"><?= $summary['survey_orders'] ?></span>
+                                        </div>
+                                          <div class="d-flex justify-content-between mb-2">
+                                            <span style="font-weight: 600;">Total Price (Completed):</span>
+                                            <span style="font-weight: bold; color: #dc3545;">₱<?= number_format($summary['total_completed_price'] ?? 0, 2) ?></span>
                                         </div>
                                         <?php endif; ?>
                                     </div>
@@ -727,14 +735,29 @@ document.addEventListener('DOMContentLoaded', function() {
 /* Print styles */
 @media print {
     
+    /* Set page orientation to landscape */
+    @page {
+        size: landscape;
+        margin: 0.5in;
+    }
+    
     /* Hide all screen elements except table and summary */
     .navbar, .sidebar, #sidebar, .wrapper > #sidebar, .btn, .card-header, .modal, .pagination, form, .dropdown, #sidebarCollapse, #content nav,
     .row.mb-4, .card.text-bg-primary, .card.text-bg-warning, .card.text-bg-info, .card.text-bg-success,
     .d-flex.justify-content-between, .loading-overlay, .filter-section, .print-button,
-    .container-fluid > .row:first-child, .d-flex.gap-2, .small.text-muted,
+    .container-fluid > .row:first-child, .d-flex.gap-2,
     .d-flex.justify-content-between.align-items-center.mb-4
     {
         display: none !important;
+    }
+    
+    /* Show description text in print */
+    .text-muted {
+        display: block !important;
+        color: #666 !important;
+        font-size: 10px !important;
+        margin-bottom: 15px !important;
+        text-align: center !important;
     }
     
     /* Hide wrapper sidebar structure */
@@ -781,14 +804,86 @@ document.addEventListener('DOMContentLoaded', function() {
         padding: 0 !important;
     }
 
-    /* Print header */
-    .print-header {
+    /* Enhanced Print Header Styles */
+    .print-header-enhanced {
         display: block !important;
-        margin-bottom: 20px !important;
-        padding-bottom: 15px !important;
+        margin-bottom: 25px !important;
+        padding: 20px 0 !important;
+        border-bottom: 2px solid #000 !important;
+    }
+    
+    .print-header-top {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: flex-start !important;
+        margin-bottom: 15px !important;
+    }
+    
+    .print-logo-section {
+        display: flex !important;
+        align-items: center !important;
+        gap: 15px !important;
+    }
+    
+    .print-logo {
+        max-height: 60px !important;
+        width: auto !important;
+    }
+    
+    .company-info h2 {
+        font-size: 18px !important;
+        font-weight: bold !important;
+        margin: 0 !important;
+        color: #000 !important;
+    }
+    
+    .company-info p {
+        font-size: 10px !important;
+        margin: 2px 0 0 0 !important;
+        color: #666 !important;
+    }
+    
+    .print-admin-info {
+        text-align: right !important;
+        font-size: 10px !important;
+        line-height: 1.4 !important;
+    }
+    
+    .print-admin-info div {
+        margin-bottom: 2px !important;
+    }
+    
+    .print-admin-info strong {
+        font-weight: bold !important;
+    }
+    
+    .print-report-header h1 {
+        font-size: 20px !important;
+        font-weight: bold !important;
+        margin: 0 0 10px 0 !important;
+        color: #000 !important;
         text-align: center !important;
     }
-
+    
+    .filter-info-box {
+        background: #f8f9fa !important;
+        border: 1px solid #ddd !important;
+        padding: 8px 12px !important;
+        border-radius: 4px !important;
+        font-size: 11px !important;
+        text-align: center !important;
+    }
+    
+    .filter-type {
+        color: #007bff !important;
+        font-weight: bold !important;
+    }
+    
+    .filter-value {
+        color: #28a745 !important;
+        font-weight: bold !important;
+    }
+    
     /* Print header with logo and admin info */
     body::before {
         content: "";
@@ -804,23 +899,6 @@ document.addEventListener('DOMContentLoaded', function() {
          margin-bottom: 20px !important;
      }
     
-    .print-logo {
-         display: block !important;
-         max-height: 80px !important;
-         width: auto !important;
-         margin-top: 0 !important;
-     }
-    
-    .print-admin-info {
-        text-align: right !important;
-        font-size: 10px !important;
-        line-height: 1.3 !important;
-    }
-    
-    .print-admin-info strong {
-        font-size: 11px !important;
-    }
-    
     /* Job Orders Report title on left */
     .print-report-title {
         display: block !important;
@@ -831,10 +909,10 @@ document.addEventListener('DOMContentLoaded', function() {
         text-align: left !important;
     }
     
-    /* Hide Created At column (last column) */
-    .table th:last-child,
-    .table td:last-child {
-        display: none !important;
+    /* Show all columns including Completed At */
+    .table th,
+    .table td {
+        display: table-cell !important;
     }
 
     /* Table styling for clean print */
@@ -847,6 +925,7 @@ document.addEventListener('DOMContentLoaded', function() {
         overflow: visible !important;
         border: none !important;
         border-radius: 0 !important;
+        background: transparent !important;
     }
     
     .table {
@@ -855,10 +934,11 @@ document.addEventListener('DOMContentLoaded', function() {
         margin-bottom: 20px !important;
         font-size: 8px !important;
         table-layout: fixed !important;
+        background: transparent !important;
     }
 
     .table th {
-         background: #000 !important;
+         background: transparent !important;
          color: #000 !important;
          font-weight: bold !important;
          text-align: center !important;
@@ -876,22 +956,29 @@ document.addEventListener('DOMContentLoaded', function() {
          text-align: center !important;
          font-size: 8px !important;
          color: #000 !important;
+         background: transparent !important;
      }
 
-    /* Optimized column widths for compact print (without Created At) */
-    .table th:nth-child(1), .table td:nth-child(1) { width: 8% !important; font-weight: bold !important; }  /* Order # */
-    .table th:nth-child(2), .table td:nth-child(2) { width: 15% !important; } /* Customer */
-    .table th:nth-child(3), .table td:nth-child(3) { width: 10% !important; }  /* Service Type */
-    .table th:nth-child(4), .table td:nth-child(4) { width: 10% !important; }  /* Brand */
-    .table th:nth-child(5), .table td:nth-child(5) { width: 12% !important; } /* Model */
-    .table th:nth-child(6), .table td:nth-child(6) { width: 9% !important; }  /* Part Code */
-    .table th:nth-child(7), .table td:nth-child(7) { width: 15% !important; } /* Part Name */
-    .table th:nth-child(8), .table td:nth-child(8) { width: 8% !important; }  /* Price */
-    .table th:nth-child(9), .table td:nth-child(9) { width: 8% !important; }  /* Status */
-    .table th:nth-child(10), .table td:nth-child(10) { width: 12% !important; } /* Technician */
+    /* Optimized column widths for job orders */
+    .table th:nth-child(1), .table td:nth-child(1) { width: 7% !important; }  /* Ticket # */
+    .table th:nth-child(2), .table td:nth-child(2) { width: 11% !important; } /* Customer */
+    .table th:nth-child(3), .table td:nth-child(3) { width: 9% !important; } /* Service Type */
+    .table th:nth-child(4), .table td:nth-child(4) { width: 7% !important; }  /* Brand */
+    .table th:nth-child(5), .table td:nth-child(5) { width: 7% !important; }  /* Model */
+    .table th:nth-child(6), .table td:nth-child(6) { width: 7% !important; }  /* Part Code */
+    .table th:nth-child(7), .table td:nth-child(7) { width: 11% !important; } /* Part Name */
+    .table th:nth-child(8), .table td:nth-child(8) { width: 7% !important; }  /* Price */
+    .table th:nth-child(9), .table td:nth-child(9) { width: 7% !important; }  /* Status */
+    .table th:nth-child(10), .table td:nth-child(10) { width: 9% !important; } /* Technician */
+    .table th:nth-child(11), .table td:nth-child(11) { width: 8% !important; } /* Created At */
+    .table th:nth-child(12), .table td:nth-child(12) { width: 10% !important; } /* Completed At */
 
     .table tbody tr:nth-child(even) {
-         background: #fff !important;
+         background: transparent !important;
+     }
+     
+     .table tbody tr {
+         background: transparent !important;
      }
 
     /* Badge styling for print */
@@ -948,23 +1035,23 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /* Ensure table doesn't break across pages */
-    .table {
-        page-break-inside: auto !important;
-    }
-    
-    .table tr {
-        page-break-inside: avoid !important;
-        page-break-after: auto !important;
-    }
-    
-    .table thead {
-        display: table-header-group !important;
-    }
-    
-    /* Hide empty cells cleanly */
-    .text-muted {
-        color: #999 !important;
-    }
+            .table {
+                page-break-inside: auto !important;
+            }
+            
+            .table tr {
+                page-break-inside: avoid !important;
+                page-break-after: auto !important;
+            }
+            
+            .table thead {
+                display: table-header-group !important;
+            }
+            
+            /* Hide empty cells cleanly */
+            .text-muted {
+                color: #999 !important;
+            }
 }
 </style>
 </body>

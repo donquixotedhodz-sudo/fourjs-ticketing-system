@@ -25,13 +25,20 @@ try {
     $sql = "
         SELECT 
             jo.*,
-            COALESCE(am.model_name, 'Not Specified') as model_name,
+            CASE 
+                WHEN jo.service_type = 'repair' THEN COALESCE(ap.part_name, 'Not Specified')
+                ELSE COALESCE(am.model_name, 'Not Specified')
+            END as model_name,
             COALESCE(jo.service_type, 'Not Specified') as service_type,
             t.name as technician_name,
-            t.profile_picture as technician_profile
+            t.profile_picture as technician_profile,
+            t2.name as secondary_technician_name,
+            t2.profile_picture as secondary_technician_profile
         FROM job_orders jo 
         LEFT JOIN aircon_models am ON jo.aircon_model_id = am.id 
+        LEFT JOIN ac_parts ap ON jo.part_id = ap.id
         LEFT JOIN technicians t ON jo.assigned_technician_id = t.id
+        LEFT JOIN technicians t2 ON jo.secondary_technician_id = t2.id
         WHERE jo.status IN ('pending', 'in_progress')
     ";
 
@@ -318,6 +325,15 @@ require_once 'includes/header.php';
                                 <?php endforeach; ?>
                             </select>
                         </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Secondary Technician <small class="text-muted">(Optional)</small></label>
+                            <select class="form-select" name="secondary_technician_id">
+                                <option value="">Select Secondary Technician</option>
+                                <?php foreach ($technicians as $tech): ?>
+                                <option value="<?= $tech['id'] ?>"><?= htmlspecialchars($tech['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
 
                         <!-- Cleaning Orders Container -->
                         <div class="col-12">
@@ -455,6 +471,15 @@ require_once 'includes/header.php';
                                     <?php endforeach; ?>
                                 </select>
                             </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Secondary Technician <small class="text-muted">(Optional)</small></label>
+                                <select class="form-select" name="secondary_technician_id">
+                                    <option value="">Select Secondary Technician</option>
+                                    <?php foreach ($technicians as $tech): ?>
+                                    <option value="<?= $tech['id'] ?>"><?= htmlspecialchars($tech['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
                                 <!-- Removed Due Date field here -->
 
                             <!-- Price Section -->
@@ -526,6 +551,15 @@ require_once 'includes/header.php';
                                 <label class="form-label">Assign Technician <span class="text-danger">*</span></label>
                                 <select class="form-select" name="assigned_technician_id" id="edit_assigned_technician_id" required>
                                     <option value="">Select Technician</option>
+                                    <?php foreach ($technicians as $tech): ?>
+                                    <option value="<?= $tech['id'] ?>"><?= htmlspecialchars($tech['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Secondary Technician <small class="text-muted">(Optional)</small></label>
+                                <select class="form-select" name="secondary_technician_id" id="edit_secondary_technician_id">
+                                    <option value="">Select Secondary Technician</option>
                                     <?php foreach ($technicians as $tech): ?>
                                     <option value="<?= $tech['id'] ?>"><?= htmlspecialchars($tech['name']) ?></option>
                                     <?php endforeach; ?>

@@ -68,6 +68,7 @@ try {
             aircon_model_id = ?,
             part_id = ?,
             assigned_technician_id = ?,
+            secondary_technician_id = ?,
             price = ?,
             status = ?,
             updated_at = NOW()
@@ -82,6 +83,7 @@ try {
         $aircon_model_id,
         $part_id,
         (int)$_POST['assigned_technician_id'],
+        !empty($_POST['secondary_technician_id']) ? (int)$_POST['secondary_technician_id'] : null,
         $_POST['price'],
         $_POST['status'],
         $_POST['order_id']

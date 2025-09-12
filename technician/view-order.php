@@ -22,13 +22,20 @@ try {
     $stmt = $pdo->prepare("
         SELECT 
             jo.*,
-            COALESCE(am.model_name, 'Not Specified') as model_name,
-            COALESCE(am.brand, 'Not Specified') as brand
+            CASE 
+                WHEN jo.service_type = 'repair' THEN COALESCE(ap.part_name, 'Not Specified')
+                ELSE COALESCE(am.model_name, 'Not Specified')
+            END as model_name,
+            CASE 
+                WHEN jo.service_type = 'repair' THEN COALESCE(ap.part_category, 'Not Specified')
+                ELSE COALESCE(am.brand, 'Not Specified')
+            END as brand
         FROM job_orders jo 
-        LEFT JOIN aircon_models am ON jo.aircon_model_id = am.id 
-        WHERE jo.id = ? AND jo.assigned_technician_id = ?
+        LEFT JOIN aircon_models am ON jo.aircon_model_id = am.id AND jo.service_type IN ('installation', 'cleaning', 'maintenance', 'survey')
+        LEFT JOIN ac_parts ap ON jo.part_id = ap.id AND jo.service_type = 'repair'
+        WHERE jo.id = ? AND (jo.assigned_technician_id = ? OR jo.secondary_technician_id = ?)
     ");
-    $stmt->execute([$_GET['id'], $_SESSION['user_id']]);
+    $stmt->execute([$_GET['id'], $_SESSION['user_id'], $_SESSION['user_id']]);
     $order = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$order) {
@@ -230,4 +237,4 @@ require_once 'includes/header.php';
     <!-- Custom JS -->
     <script src="../js/dashboard.js"></script>
 </body>
-</html> 
+</html>

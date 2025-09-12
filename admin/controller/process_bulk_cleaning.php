@@ -73,9 +73,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("
                 INSERT INTO job_orders (
                     job_order_number, customer_id, customer_name, customer_phone, customer_address,
-                    service_type, cleaning_service_id, aircon_model_id, assigned_technician_id,
+                    service_type, cleaning_service_id, aircon_model_id, assigned_technician_id, secondary_technician_id,
                     status, base_price, additional_fee, discount, price, created_by
-                ) VALUES (?, ?, ?, ?, ?, 'cleaning', ?, ?, ?, 'pending', ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, 'cleaning', ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)
             ");
             
             $stmt->execute([
@@ -87,6 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $cleaning_service_id,
                 $aircon_model_id,
                 $assigned_technician_id,
+                !empty($_POST['secondary_technician_id']) ? (int)$_POST['secondary_technician_id'] : null,
                 $base_price,
                 $proportional_additional_fee,
                 $proportional_discount,
